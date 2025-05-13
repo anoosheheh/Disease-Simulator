@@ -14,29 +14,18 @@ def generate_random_network(
     k_within=env_params["average_neighbours"],
     p_rewire=env_params["rewire_probability"]
 ):
-    """
-    Generate a random Watts-Strogatz small-world network.
-    Args:
-        total_population: Total number of nodes in the network
-        k_within: Number of nearest neighbors in Watts-Strogatz model
-        p_rewire: Probability of rewiring edges
-    """
     G = nx.watts_strogatz_graph(total_population, k_within, p_rewire)
     set_graph_node_attributes(G)
     set_graph_edge_attributes(G)
-    # Use the improved conversion function
     return convert_graph_to_json(G)
 
 
 def set_graph_node_attributes(graph):
-    """
-    Assigns attributes to nodes in the graph.
-    Randomly selects between 1% and 5% of nodes to be 'infected', rest are 'healthy'.
-    """
+    
     node_ids = list(graph.nodes())
     total_nodes = len(node_ids)
     percent = random.uniform(0.01, 0.05)
-    num_infected = max(1, int(percent * total_nodes))
+    num_infected = max(1, int(percent * total_nodes)) # Randomly selects between 1% and 5% of nodes to be 'infected'
     infected_nodes = set(random.sample(node_ids, num_infected))
 
     for i in graph.nodes():
@@ -50,21 +39,13 @@ def set_graph_node_attributes(graph):
             graph.nodes[i]['daysInfected'] = None
 
 def set_graph_edge_attributes(graph):
-    """
-    Assigns weights to edges in the graph.
-    The weight is a random float between 0.1 and 1.0.
-    """
+    #The weight is a random float between 0.1 and 1.0.
+    
     for u, v in graph.edges():
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
 def convert_graph_to_json(graph):
-    """
-    Convert a NetworkX graph to a D3.js-compatible JSON format.
-    Args:
-        graph: A NetworkX graph object.
-    Returns:
-        A dictionary containing nodes and links in D3.js format.
-    """
+    # Convert the graph to a JSON-like structure
     nodes = []
     for i in graph.nodes():
         node_data = graph.nodes[i]
