@@ -42,13 +42,13 @@ def set_graph_edge_attributes(graph):
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
 def convert_graph_to_json(graph):
-    adjacency = {}
+    adjacency_list = {}
 
     # Step 1: Add node data
     for i in graph.nodes():
         node_data = graph.nodes[i]
         node_id = node_data.get('id', str(i))
-        adjacency[node_id] = {
+        adjacency_list[node_id] = {
             'data': {
                 'id': node_id,
                 'age': node_data.get('age'),
@@ -64,8 +64,8 @@ def convert_graph_to_json(graph):
         u_id, v_id = str(u), str(v)
         weight = data.get('weight', 1.0)
 
-        adjacency[u_id]['neighbors'].append({'id': v_id, 'weight': weight})
-        adjacency[v_id]['neighbors'].append({'id': u_id, 'weight': weight})  # Undirected
+        adjacency_list[u_id]['neighbors'].append({'id': v_id, 'weight': weight})
+        adjacency_list[v_id]['neighbors'].append({'id': u_id, 'weight': weight})  # Undirected
 
-    return adjacency
+    return adjacency_list
 

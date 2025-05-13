@@ -68,7 +68,8 @@ def person_next_state(
     E2R,
     random_infection_probability,
 ):
-    person_state = graph[str(person_id)]['data']['status']
+    node = graph[str(person_id)]['data']
+    person_state = node['status']
 
     if person_state == SUSCEPTIBLE:
         infection_prob = min(
@@ -76,31 +77,51 @@ def person_next_state(
             1.0
         )
         dice = throw_dice(infection_prob)
-        graph[str(person_id)]['data']['status'] = EXPOSED if dice == 1 else SUSCEPTIBLE
+        if dice == 1:
+            node['status'] = EXPOSED
+            node['daysInfected'] = 0
+        else:
+            node['status'] = SUSCEPTIBLE
+            node['daysInfected'] = None
 
     elif person_state == EXPOSED:
         dice = throw_dice(E2I, E2R)
-        graph[str(person_id)]['data']['status'] = INFECTED if dice == 1 else RECOVERED if dice == 2 else EXPOSED
+        if dice == 1:
+            node['status'] = INFECTED
+            node['daysInfected'] = 0
+        elif dice == 2:
+            node['status'] = RECOVERED
+            node['daysInfected'] = None
+        else:
+            node['status'] = EXPOSED
+            node['daysInfected'] = 0
 
     elif person_state == INFECTED:
-
+        # Increment days infected
+        
         dice = throw_dice(I2R, mortility_factor(graph, person_id, I2D))
         if dice == 1:
-            graph[str(person_id)]['data']['status'] = RECOVERED
+            node['status'] = RECOVERED
+            node['daysInfected'] = None
         elif dice == 2:
-            graph[str(person_id)]['data']['status'] = DEAD
+            node['status'] = DEAD
+            node['daysInfected'] = None
         else:
-            graph[str(person_id)]['data']['status'] = INFECTED
+            node['status'] = INFECTED
+            node['daysInfected'] = (node.get('daysInfected') or 0) + 1
 
     elif person_state == RECOVERED:
         dice = throw_dice(R2S)
         if dice == 1:
-            graph[str(person_id)]['data']['status'] = SUSCEPTIBLE
+            node['status'] = SUSCEPTIBLE
+            node['daysInfected'] = None
         else:
-            graph[str(person_id)]['data']['status'] = RECOVERED
+            node['status'] = RECOVERED
+            node['daysInfected'] = None
 
     elif person_state == DEAD:
-        graph[str(person_id)]['data']['status'] = DEAD
+        node['status'] = DEAD
+        node['daysInfected'] = None
 
 
 def next_day(graph, scenario_params):
