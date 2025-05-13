@@ -1,142 +1,110 @@
 from flask import Flask, request, jsonify
-import os
-import json
-import random
-import networkx as nx
-import numpy as np
 from flask_cors import CORS
+import threading
+import time
 from graphing import generate_random_network
+from seird_model import next_day
 
 app = Flask(__name__)
 CORS(app)
 
-# Constants for simulation
-MIN_NODES = 50
-MAX_NODES = 200
-MIN_AGE = 1
-MAX_AGE = 100
-INITIAL_INFECTED_PERCENTAGE = 0.05
+# Global simulation state
+simulation_state = {
+    'graph': None,
+    'params': None,
+    'current_day': 0,
+    'running': False,
+    'step_interval': 1,  # in seconds
+}
 
+# Default parameters
+scenario_params = {
+    "S2E": 0.05,
+    "S2E_TAU": 0.5,
+    "E2I": 0.1,
+    "I2R": 0.1,
+    "R2S": 0.01,
+    "I2D": 0.01,
+    "E2R": 0.01,
+}
 
+env_params = {
+    "total_population": 500,
+    "average_neighbours": 6,
+    "rewire_probability": 0.1,
+}
 
-# Function to perform one step of the disease simulation
-def simulate_step(data, params, current_day):
-    nodes = data['nodes']
-    links = data['links']
-    
-    # Create a mapping of node id to node object for easier lookup
-    node_map = {node['id']: node for node in nodes}
-    
-    # Convert links to a format where we can easily find connections
-    connections = {}
-    for link in links:
-        source_id = link['source'] if isinstance(link['source'], str) else link['source']['id']
-        target_id = link['target'] if isinstance(link['target'], str) else link['target']['id']
-        weight = link['weight']
-        
-        if source_id not in connections:
-            connections[source_id] = []
-        if target_id not in connections:
-            connections[target_id] = []
-        
-        connections[source_id].append((target_id, weight))
-        connections[target_id].append((source_id, weight))
-    
-    # Medicine effect based on day introduced
-    medicine_factor = 0
-    if params['medicineEnabled'] and current_day >= params['medicineDayIntroduced']:
-        medicine_factor = params['medicineEffectiveness']
-    
-    # Process each node
-    new_infections = []
-    recoveries = []
-    deaths = []
-    
-    for node in nodes:
-        if node['status'] == 'infected':
-            # Increment days infected
-            node['daysInfected'] = (node['daysInfected'] or 0) + 1
-            
-            # Check for recovery or death
-            mortality_rate = params['mortalityBase'] * (node['age'] / 100) * (1 - medicine_factor)
-            if random.random() < mortality_rate:
-                deaths.append(node['id'])
-            elif random.random() < params['recoveryRate'] * (1 + medicine_factor):
-                recoveries.append(node['id'])
-            
-            # Spread infection to connected nodes
-            if node['id'] in connections:
-                for connected_id, weight in connections[node['id']]:
-                    connected_node = node_map[connected_id]
-                    if connected_node['status'] == 'healthy':
-                        # Transmission probability influenced by weight of connection
-                        transmission_prob = params['transmissionRate'] * weight
-                        if random.random() < transmission_prob:
-                            new_infections.append(connected_id)
-    
-    # Apply changes
-    for node_id in new_infections:
-        node_map[node_id]['status'] = 'infected'
-        node_map[node_id]['daysInfected'] = 0
-    
-    for node_id in recoveries:
-        node_map[node_id]['status'] = 'recovered'
-    
-    for node_id in deaths:
-        node_map[node_id]['status'] = 'deceased'
-    
-    # Check if simulation is finished (no more infected)
-    is_finished = not any(node['status'] == 'infected' for node in nodes)
-    
-    return {'simulationData': data, 'isFinished': is_finished}
+# Simulation runner thread
+def run_simulation():
+    while simulation_state['running']:
+        graph = simulation_state['graph']
+        next_day(graph, simulation_state['params'])
+        simulation_state['current_day'] += 1
 
-# Routes
-@app.route('/api/graph/default', methods=['GET'])
-def get_default_graph():
-    # Generate a default graph
-    return jsonify(generate_random_network())
+        # Stop if infection is over
+        statuses = [graph[n]['data']['status'] for n in graph]
+        if statuses.count('I') == 0 and statuses.count('E') == 0:
+            simulation_state['running'] = False
+            break
 
-@app.route('/api/graph/random', methods=['GET'])
-def get_random_graph():
-    n_nodes = random.randint(MIN_NODES, MAX_NODES)
-    m_edges = random.randint(2, min(5, n_nodes // 10))
-    return jsonify(generate_random_network(n_nodes, m_edges))
+        time.sleep(simulation_state['step_interval'])
 
-@app.route('/api/graph/upload', methods=['POST'])
-def upload_graph():
-    data = request.json
-    
-    # Basic validation
-    if 'nodes' not in data or 'links' not in data:
-        return jsonify({'error': 'Invalid graph format'}), 400
-    
-    # Process the graph to ensure it has all required fields
-    for node in data['nodes']:
-        if 'id' not in node:
-            node['id'] = str(random.randint(10000, 99999))
-        if 'age' not in node:
-            node['age'] = random.randint(MIN_AGE, MAX_AGE)
-        if 'status' not in node:
-            node['status'] = 'infected' if random.random() < INITIAL_INFECTED_PERCENTAGE else 'healthy'
-        node['initialStatus'] = node['status']
-        if node['status'] == 'infected':
-            node['daysInfected'] = 0
-    
-    for link in data['links']:
-        if 'weight' not in link:
-            link['weight'] = round(random.uniform(0.1, 1.0), 2)
-    
-    return jsonify(data)
+# === ROUTES ===
 
-@app.route('/api/simulation/step', methods=['POST'])
-def step_simulation():
-    request_data = request.json
-    simulation_data = request_data.get('data')
-    simulation_params = request_data.get('params')
-    current_day = request_data.get('currentDay', 0)
-    
-    result = simulate_step(simulation_data, simulation_params, current_day)
-    return jsonify(result)
+@app.route('/api/graph', methods=['GET'])
+def get_graph():
+    # Generate a new random network (adjacency list format)
+    graph = generate_random_network(
+        env_params["total_population"],
+        env_params["average_neighbours"],
+        env_params["rewire_probability"]
+    )
+    return jsonify(graph)
+
+@app.route('/api/simulation/start', methods=['POST'])
+def start_simulation():
+    if simulation_state['running']:
+        return jsonify({'status': 'already_running'}), 409
+
+    data = request.get_json()
+    simulation_state['graph'] = data['graph']
+    simulation_state['params'] = data.get('params', scenario_params)
+    simulation_state['current_day'] = 0
+    simulation_state['running'] = True
+    simulation_state['step_interval'] = max(0.05, data.get('speed', 1000) / 1000.0)
+
+    thread = threading.Thread(target=run_simulation)
+    thread.start()
+
+    return jsonify({'status': 'started'})
+
+@app.route('/api/simulation/state', methods=['GET'])
+def get_simulation_state():
+    graph = simulation_state['graph']
+    if graph:
+        statuses = [graph[n]['data']['status'] for n in graph]
+        status_counts = {
+            'S': statuses.count('S'),
+            'E': statuses.count('E'),
+            'I': statuses.count('I'),
+            'R': statuses.count('R'),
+            'D': statuses.count('D')
+        }
+    else:
+        status_counts = {}
+
+    response = {
+        'currentDay': simulation_state['current_day'],
+        'running': simulation_state['running'],
+        'statusCounts': status_counts,
+        'isFinished': not simulation_state['running']
+    }
+
+    # If frontend requests full graph on every poll
+    if request.args.get('includeGraph') == 'true':
+        response['graph'] = graph
+
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run(debug=True)

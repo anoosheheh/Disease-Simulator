@@ -85,33 +85,62 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   // Start the simulation
-  const startSimulation = useCallback(() => {
-    if (simulationState.isFinished || !simulationData) return;
-    
-    setSimulationState(prev => ({ ...prev, isRunning: true }));
-    
-    // Clear any existing interval
-    if (simulationInterval) {
-      clearInterval(simulationInterval);
+  const startSimulation = useCallback(async () => {
+    if (!simulationData || simulationState.isFinished) return;
+
+    try {
+      // Convert simulation speed to milliseconds
+      const speedMs = Math.max(50, 1000 / simulationParams.simulationSpeed);
+
+      const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
+        data: simulationData,
+        params: simulationParams,
+        speed: speedMs,
+      });
+
+      if (response.data.status === 'started') {
+        setSimulationState(prev => ({ ...prev, isRunning: true }));
+
+        // Start polling state
+        const intervalId = window.setInterval(async () => {
+          try {
+            const stateResponse = await axios.get('http://127.0.0.1:5000/api/simulation/state');
+            const { data, currentDay, running, isFinished } = stateResponse.data;
+
+            setSimulationData(data);
+            setSimulationState({
+              isRunning: running,
+              isFinished: isFinished,
+              currentDay: currentDay,
+            });
+
+            if (isFinished || !running) {
+              clearInterval(intervalId);
+              setSimulationInterval(null);
+            }
+          } catch (error) {
+            console.error('Polling simulation state failed:', error);
+            clearInterval(intervalId);
+            setSimulationInterval(null);
+          }
+        }, speedMs);
+
+        setSimulationInterval(intervalId);
+      }
+    } catch (error) {
+      console.error('Error starting simulation:', error);
     }
-    
-    // Set new interval based on simulation speed
-    const intervalId = window.setInterval(() => {
-      stepSimulation();
-    }, 1000 / simulationParams.simulationSpeed);
-    
-    setSimulationInterval(intervalId);
-  }, [simulationState.isFinished, simulationData, simulationInterval, simulationParams.simulationSpeed]);
+  }, [simulationData, simulationParams, simulationState.isFinished]);
 
   // Pause the simulation
   const pauseSimulation = useCallback(() => {
     setSimulationState(prev => ({ ...prev, isRunning: false }));
-    
     if (simulationInterval) {
       clearInterval(simulationInterval);
       setSimulationInterval(null);
     }
   }, [simulationInterval]);
+
 
   // Perform one step of the simulation
   const stepSimulation = useCallback(async () => {
