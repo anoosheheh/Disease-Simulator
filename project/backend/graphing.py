@@ -1,7 +1,6 @@
 import networkx as nx
 import random
 
-
 env_params = {
     "total_population": 2000,
     "simulate_days": 600,
@@ -19,7 +18,6 @@ def generate_random_network(
     set_graph_edge_attributes(G)
     return convert_graph_to_json(G)
 
-
 def set_graph_node_attributes(graph):
     
     node_ids = list(graph.nodes())
@@ -32,15 +30,14 @@ def set_graph_node_attributes(graph):
         graph.nodes[i]['id'] = str(i)
         graph.nodes[i]['age'] = random.randint(1, 100)
         if i in infected_nodes:
-            graph.nodes[i]['status'] = 'infected'
+            graph.nodes[i]['status'] = 'I'
             graph.nodes[i]['daysInfected'] = 0
         else:
-            graph.nodes[i]['status'] = 'healthy'
+            graph.nodes[i]['status'] = 'S'
             graph.nodes[i]['daysInfected'] = None
 
 def set_graph_edge_attributes(graph):
-    #The weight is a random float between 0.1 and 1.0.
-    
+    # The weight is a random float between 0.1 and 1.0.    
     for u, v in graph.edges():
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
@@ -57,9 +54,9 @@ def convert_graph_to_json(graph):
             'daysInfected': node_data.get('daysInfected')
         })
 
-    links = []
+    edges = []
     for u, v, data in graph.edges(data=True):
-        links.append({
+        edges.append({
             'source': str(u),
             'target': str(v),
             'weight': data.get('weight', 1.0)
@@ -67,6 +64,31 @@ def convert_graph_to_json(graph):
 
     return {
         'nodes': nodes,
-        'links': links,
+        'edges': edges,
         'totalNodes': len(nodes)
     }
+
+def build_adjacency_list(graph_json_format):
+    adjacency = {}
+
+    # First, index node data by ID for quick access
+    node_info = {node['id']: node for node in graph_json_format['nodes']}
+
+    # Initialize the adjacency list with node data
+    for node_id, data in node_info.items():
+        adjacency[node_id] = {
+            'data': data,
+            'neighbors': []
+        }
+
+    # Populate neighbor lists using edges
+    for edge in graph_json_format['edges']:
+        source = str(edge['source'])
+        target = str(edge['target'])
+        weight = edge.get('weight', 1.0)
+
+        adjacency[source]['neighbors'].append({'id': target, 'weight': weight})
+        adjacency[target]['neighbors'].append({'id': source, 'weight': weight})  # Undirected
+
+    return adjacency
+
