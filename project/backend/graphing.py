@@ -1,7 +1,6 @@
 import networkx as nx
 import random
 
-
 env_params = {
     "total_population": 2000,
     "simulate_days": 600,
@@ -19,7 +18,6 @@ def generate_random_network(
     set_graph_edge_attributes(G)
     return convert_graph_to_json(G)
 
-
 def set_graph_node_attributes(graph):
     
     node_ids = list(graph.nodes())
@@ -32,41 +30,42 @@ def set_graph_node_attributes(graph):
         graph.nodes[i]['id'] = str(i)
         graph.nodes[i]['age'] = random.randint(1, 100)
         if i in infected_nodes:
-            graph.nodes[i]['status'] = 'infected'
+            graph.nodes[i]['status'] = 'I'
             graph.nodes[i]['daysInfected'] = 0
         else:
-            graph.nodes[i]['status'] = 'healthy'
+            graph.nodes[i]['status'] = 'S'
             graph.nodes[i]['daysInfected'] = None
 
 def set_graph_edge_attributes(graph):
-    #The weight is a random float between 0.1 and 1.0.
-    
+    # The weight is a random float between 0.1 and 1.0.    
     for u, v in graph.edges():
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
 def convert_graph_to_json(graph):
-    # Convert the graph to a JSON-like structure
-    nodes = []
+    adjacency = {}
+
+    # Step 1: Add node data
     for i in graph.nodes():
         node_data = graph.nodes[i]
-        nodes.append({
-            'id': node_data.get('id', str(i)),
-            'age': node_data.get('age'),
-            'status': node_data.get('status'),
-            'initialStatus': node_data.get('status'),
-            'daysInfected': node_data.get('daysInfected')
-        })
+        node_id = node_data.get('id', str(i))
+        adjacency[node_id] = {
+            'data': {
+                'id': node_id,
+                'age': node_data.get('age'),
+                'status': node_data.get('status'),
+                'initialStatus': node_data.get('status'),
+                'daysInfected': node_data.get('daysInfected')
+            },
+            'neighbors': []
+        }
 
-    links = []
+    # Step 2: Add neighbors (edges)
     for u, v, data in graph.edges(data=True):
-        links.append({
-            'source': str(u),
-            'target': str(v),
-            'weight': data.get('weight', 1.0)
-        })
+        u_id, v_id = str(u), str(v)
+        weight = data.get('weight', 1.0)
 
-    return {
-        'nodes': nodes,
-        'links': links,
-        'totalNodes': len(nodes)
-    }
+        adjacency[u_id]['neighbors'].append({'id': v_id, 'weight': weight})
+        adjacency[v_id]['neighbors'].append({'id': u_id, 'weight': weight})  # Undirected
+
+    return adjacency
+
