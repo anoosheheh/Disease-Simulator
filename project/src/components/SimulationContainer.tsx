@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import ControlPanel from './ControlPanel';
 import StatsPanel from './StatsPanel';
-import GraphUploader from './GraphUploader';
 import { useSimulationContext } from '../context/SimulationContext';
 import { AlertTriangle } from 'lucide-react';
+import LineGraph from './LineGraph';
 
 const SimulationContainer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +18,7 @@ const SimulationContainer: React.FC = () => {
         await fetchDefaultGraph();
         setIsLoading(false);
       } catch (err) {
-        setError('Failed to load default simulation data. Please try uploading your own graph.');
+        setError('Failed to load simulation data');
         setIsLoading(false);
       }
     };
@@ -29,8 +29,15 @@ const SimulationContainer: React.FC = () => {
   return (
     <div className="container mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3 flex flex-col">
-          <div className="bg-gray-800 rounded-lg shadow-lg p-4 h-[70vh] md:h-[80vh] flex flex-col">
+        <div className="lg:col-span-2 flex flex-col space-y-4">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-4 h-[50vh] flex flex-col">
+            <LineGraph />
+          </div>
+          <StatsPanel />
+          <ControlPanel />
+        </div>
+        <div className="lg:col-span-2">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-4 h-[calc(100vh-8rem)] flex flex-col">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -46,16 +53,9 @@ const SimulationContainer: React.FC = () => {
               <NetworkGraph />
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p>No simulation data available. Please upload a graph or generate one.</p>
+                <p>No simulation data available</p>
               </div>
             )}
-          </div>
-          <StatsPanel />
-        </div>
-        <div>
-          <div className="space-y-4">
-            <GraphUploader />
-            <ControlPanel />
           </div>
         </div>
       </div>
