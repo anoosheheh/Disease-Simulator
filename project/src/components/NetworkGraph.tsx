@@ -132,13 +132,14 @@ const NetworkGraph: React.FC = () => {
   }, [simulationData]);
 
   useEffect(() => {
-    if (nodeSelectionRef.current) {
+    if (nodeSelectionRef.current && simulationData?.nodes) {
       nodeSelectionRef.current
+        .data(simulationData.nodes)
         .transition()
         .duration(300)
         .attr('fill', d => getNodeColor(d));
     }
-  }, [simulationData?.nodes?.map(n => n.status).join(',')]);
+  }, [simulationData]);
 
   if (!simulationData?.nodes) {
     return (
