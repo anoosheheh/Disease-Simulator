@@ -6,6 +6,7 @@ import {
   Biohazard,
   Syringe,
   Skull,
+  AlertTriangle,
 } from 'lucide-react';
 import { useSimulationContext } from '../context/SimulationContext';
 import { Pie } from 'react-chartjs-2';
@@ -18,20 +19,21 @@ const StatsPanel: React.FC = () => {
 
   if (!simulationData?.nodes) return null;
 
-  // Counts
+  // Counts using updated currentStatus
   const totalNodes = simulationData.nodes.length;
-  const healthy = simulationData.nodes.filter(n => n.status === 'healthy').length;
-  const infected = simulationData.nodes.filter(n => n.status === 'infected').length;
-  const recovered = simulationData.nodes.filter(n => n.status === 'recovered').length;
-  const deceased = simulationData.nodes.filter(n => n.status === 'deceased').length;
+  const healthy = simulationData.nodes.filter(n => n.status === 'S').length;
+  const exposed = simulationData.nodes.filter(n => n.status === 'E').length;
+  const infected = simulationData.nodes.filter(n => n.status === 'I').length;
+  const recovered = simulationData.nodes.filter(n => n.status === 'R').length;
+  const deceased = simulationData.nodes.filter(n => n.status === 'D').length;
 
   const population = totalNodes - deceased;
   const infectionRate = ((infected / population) * 100) || 0;
 
   const pieData = {
     datasets: [{
-      data: [healthy, infected, recovered, deceased],
-      backgroundColor: ['#22c55e', '#ef4444', '#3b82f6', '#6b7280'],
+      data: [healthy, exposed, infected, recovered, deceased],
+      backgroundColor: ['#22c55e','#f59e0b', '#ef4444', '#3b82f6', '#6b7280'],
       borderWidth: 0,
     }],
   };
@@ -85,6 +87,7 @@ const StatsPanel: React.FC = () => {
           {/* Labels */}
           <div className="space-y-4 pl-2">
             <LabelRow Icon={HeartPulse} label="Healthy" count={healthy} color="text-green-500" />
+            <LabelRow Icon={AlertTriangle} label="Exposed" count={exposed} color="text-yellow-500" />
             <LabelRow Icon={Biohazard} label="Infected" count={infected} color="text-red-500" />
             <LabelRow Icon={Syringe} label="Recovered" count={recovered} color="text-blue-500" />
             <LabelRow Icon={Skull} label="Deceased" count={deceased} color="text-gray-500" />

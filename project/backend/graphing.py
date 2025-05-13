@@ -2,7 +2,7 @@ import networkx as nx
 import random
 
 env_params = {
-    "total_population": 2000,
+    "total_population": 200,
     "simulate_days": 600,
     "average_neighbours": 6,
     "rewire_probability": 0.1,
@@ -42,30 +42,29 @@ def set_graph_edge_attributes(graph):
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
 def convert_graph_to_json(graph):
-    adjacency_list = {}
+    nodes = []
+    links = []
 
-    # Step 1: Add node data
     for i in graph.nodes():
         node_data = graph.nodes[i]
-        node_id = node_data.get('id', str(i))
-        adjacency_list[node_id] = {
-            'data': {
-                'id': node_id,
-                'age': node_data.get('age'),
-                'status': node_data.get('status'),
-                'initialStatus': node_data.get('status'),
-                'daysInfected': node_data.get('daysInfected')
-            },
-            'neighbors': []
-        }
+        nodes.append({
+            'id': str(i),
+            'age': node_data.get('age'),
+            'status': node_data.get('status'),
+            'initialStatus': node_data.get('status'),
+            'daysInfected': node_data.get('daysInfected')
+        })
 
-    # Step 2: Add neighbors (edges)
     for u, v, data in graph.edges(data=True):
-        u_id, v_id = str(u), str(v)
-        weight = data.get('weight', 1.0)
+        links.append({
+            'source': str(u),
+            'target': str(v),
+            'weight': data.get('weight', 1.0)
+        })
 
-        adjacency_list[u_id]['neighbors'].append({'id': v_id, 'weight': weight})
-        adjacency_list[v_id]['neighbors'].append({'id': u_id, 'weight': weight})  # Undirected
+    return {
+        'nodes': nodes,
+        'links': links
+    }
 
-    return adjacency_list
 

@@ -12,9 +12,10 @@ const NetworkGraph: React.FC = () => {
 
   const getNodeColor = (node: NodeData) => {
     switch (node.status) {
-      case 'infected': return '#ef4444'; // Red
-      case 'recovered': return '#3b82f6'; // Blue
-      case 'deceased': return '#6b7280'; // Gray
+      case 'I': return '#ef4444'; // Red
+      case 'R': return '#3b82f6'; // Blue
+      case 'D': return '#6b7280'; // Gray
+      case 'E': return '#f59e0b'; 
       default: return '#10b981'; // Green
     }
   };

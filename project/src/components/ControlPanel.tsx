@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, SkipForward, Settings, Activity, RotateCcw } from 'lucide-react';
+import { Play, Pause, SkipForward, Settings, Activity } from 'lucide-react';
 import { useSimulationContext } from '../context/SimulationContext';
 
 const ControlPanel: React.FC = () => {
@@ -9,8 +9,8 @@ const ControlPanel: React.FC = () => {
     startSimulation,
     pauseSimulation,
     stepSimulation,
-    resetSimulation,
-    updateSimulationParams
+    updateSimulationParams,
+    resetSimulation, // Added resetSimulation function
   } = useSimulationContext();
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -47,7 +47,7 @@ const ControlPanel: React.FC = () => {
       </div>
 
       <div className="flex space-x-2 mb-2">
-        {simulationState.isRunning ? (
+        {simulationState.running ? (
           <button
             onClick={pauseSimulation}
             className="bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
@@ -68,9 +68,18 @@ const ControlPanel: React.FC = () => {
         <button
           onClick={stepSimulation}
           className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
-          disabled={simulationState.isRunning || simulationState.isFinished}
+          disabled={simulationState.running || simulationState.isFinished}
         >
           <SkipForward size={16} className="mr-1" /> Step
+        </button>
+
+        {/* Reset Button */}
+        <button
+          onClick={resetSimulation} // Added resetSimulation action
+          className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
+          disabled={simulationState.running}
+        >
+          <Activity size={16} className="mr-1" /> Reset
         </button>
       </div>
 
@@ -86,7 +95,7 @@ const ControlPanel: React.FC = () => {
         <div className="space-y-4 animate-fadeIn">
           <div>
             <label htmlFor="transmissionRate" className="block text-sm text-gray-300 mb-1">
-              Transmission Rate: {simulationParams.transmissionRate}
+              Transmission Rate: {simulationParams.S2E_TAU}
             </label>
             <input
               type="range"
@@ -95,7 +104,7 @@ const ControlPanel: React.FC = () => {
               min="0"
               max="1"
               step="0.05"
-              value={simulationParams.transmissionRate}
+              value={simulationParams.S2E_TAU}
               onChange={handleChange}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
@@ -103,7 +112,7 @@ const ControlPanel: React.FC = () => {
 
           <div>
             <label htmlFor="recoveryRate" className="block text-sm text-gray-300 mb-1">
-              Recovery Rate: {simulationParams.recoveryRate}
+              Recovery Rate: {simulationParams.R2S}
             </label>
             <input
               type="range"
@@ -112,7 +121,7 @@ const ControlPanel: React.FC = () => {
               min="0"
               max="1"
               step="0.05"
-              value={simulationParams.recoveryRate}
+              value={simulationParams.R2S}
               onChange={handleChange}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
@@ -120,7 +129,7 @@ const ControlPanel: React.FC = () => {
 
           <div>
             <label htmlFor="mortalityBase" className="block text-sm text-gray-300 mb-1">
-              Base Mortality: {simulationParams.mortalityBase}
+              Base Mortality: {simulationParams.I2D}
             </label>
             <input
               type="range"
@@ -129,42 +138,12 @@ const ControlPanel: React.FC = () => {
               min="0"
               max="0.5"
               step="0.01"
-              value={simulationParams.mortalityBase}
+              value={simulationParams.I2D}
               onChange={handleChange}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-
-          <div>
-            <label htmlFor="medicineEffectiveness" className="block text-sm text-gray-300 mb-1">
-              Medicine Effectiveness: {simulationParams.medicineEffectiveness}
-            </label>
-            <input
-              type="range"
-              id="medicineEffectiveness"
-              name="medicineEffectiveness"
-              min="0"
-              max="1"
-              step="0.05"
-              value={simulationParams.medicineEffectiveness}
-              onChange={handleChange}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
           </div>
-
-          <div className="pt-2">
-            <label className="flex items-center space-x-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                name="medicineEnabled"
-                checked={simulationParams.medicineEnabled}
-                onChange={(e) => updateSimulationParams({ medicineEnabled: e.target.checked })}
-                className="w-4 h-4 bg-gray-700 rounded border-gray-600"
-              />
-              <span>Enable Medicine</span>
-            </label>
-          </div>
-        </div>
       )}
     </div>
   );

@@ -17,19 +17,21 @@ interface SimulationContextType {
 }
 
 const defaultSimulationParams: SimulationParams = {
-  transmissionRate: 0.5,
-  recoveryRate: 0.2,
-  mortalityBase: 0.05,
-  simulationSpeed: 1,
-  medicineEnabled: false,
-  medicineEffectiveness: 0.5,
-  medicineDayIntroduced: 10,
+  S2E: 0.4,
+  S2E_TAU: 0.01,
+  E2I: 0.3,
+  E2R: 0.1,
+  I2R: 0.2,
+  I2D: 0.05,
+  R2S: 0.01,
+  simulationSpeed: 1.0,
 };
 
 const initialSimulationState: SimulationState = {
-  isRunning: false,
+  running: false,
   isFinished: false,
   currentDay: 0,
+  data: null,
 };
 
 const SimulationContext = createContext<SimulationContextType | undefined>(undefined);
@@ -40,7 +42,6 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [simulationParams, setSimulationParams] = useState<SimulationParams>(defaultSimulationParams);
   const [simulationInterval, setSimulationInterval] = useState<number | null>(null);
 
-  // Fetch default graph from backend
   const fetchDefaultGraph = useCallback(async () => {
     try {
       const response = await axios.get('http://127.0.0.1:5000/api/graph/default');
@@ -48,82 +49,65 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       resetSimulation();
     } catch (error) {
       console.error('Error fetching default graph:', error);
-      throw error;
     }
   }, []);
 
-  // Upload custom graph
   const uploadGraph = useCallback(async (data: SimulationData) => {
     try {
-      // Validate the graph format
-      if (!data.nodes || !data.links || !Array.isArray(data.nodes) || !Array.isArray(data.links)) {
-        throw new Error('Invalid graph format');
-      }
-      
-      // Send to backend for processing
+      if (!data.nodes || !data.links) throw new Error('Invalid graph format');
       const response = await axios.post('http://127.0.0.1:5000/api/graph/upload', data);
       setSimulationData(response.data);
       resetSimulation();
-      return response.data;
     } catch (error) {
       console.error('Error uploading graph:', error);
-      throw error;
     }
   }, []);
 
-  // Generate random graph
   const generateRandomGraph = useCallback(async () => {
     try {
       const response = await axios.get('http://127.0.0.1:5000/api/graph/random');
       setSimulationData(response.data);
       resetSimulation();
-      return response.data;
     } catch (error) {
       console.error('Error generating random graph:', error);
-      throw error;
     }
   }, []);
 
-  // Start the simulation
   const startSimulation = useCallback(async () => {
     if (!simulationData || simulationState.isFinished) return;
 
     try {
-      // Convert simulation speed to milliseconds
-      const speedMs = Math.max(50, 1000 / simulationParams.simulationSpeed);
-
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
         data: simulationData,
         params: simulationParams,
-        speed: speedMs,
       });
 
       if (response.data.status === 'started') {
-        setSimulationState(prev => ({ ...prev, isRunning: true }));
+        setSimulationState(prev => ({ ...prev, running: true }));
 
-        // Start polling state
         const intervalId = window.setInterval(async () => {
           try {
-            const stateResponse = await axios.get('http://127.0.0.1:5000/api/simulation/state');
-            const { data, currentDay, running, isFinished } = stateResponse.data;
+            const res = await axios.get('http://127.0.0.1:5000/api/simulation/state');
+            const { data, currentDay, running, isFinished } = res.data;
 
             setSimulationData(data);
             setSimulationState({
-              isRunning: running,
-              isFinished: isFinished,
-              currentDay: currentDay,
+              data,
+              running,
+              currentDay,
+              isFinished,
             });
 
             if (isFinished || !running) {
               clearInterval(intervalId);
               setSimulationInterval(null);
             }
-          } catch (error) {
-            console.error('Polling simulation state failed:', error);
+          } catch (err) {
+            console.error('Polling simulation state failed:', err);
             clearInterval(intervalId);
             setSimulationInterval(null);
           }
-        }, speedMs);
+        }, 500); // Poll every 0.5s (or adjust to taste)
 
         setSimulationInterval(intervalId);
       }
@@ -132,94 +116,83 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [simulationData, simulationParams, simulationState.isFinished]);
 
-  // Pause the simulation
   const pauseSimulation = useCallback(() => {
-    setSimulationState(prev => ({ ...prev, isRunning: false }));
+    setSimulationState(prev => ({ ...prev, running: false }));
     if (simulationInterval) {
       clearInterval(simulationInterval);
       setSimulationInterval(null);
     }
   }, [simulationInterval]);
 
-
-  // Perform one step of the simulation
   const stepSimulation = useCallback(async () => {
     if (!simulationData || simulationState.isFinished) return;
-    
+
     try {
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/step', {
         data: simulationData,
         params: simulationParams,
         currentDay: simulationState.currentDay,
       });
-      
-      setSimulationData(response.data.simulationData);
-      
+
+      const { simulationData: newData, isFinished } = response.data;
+
+      setSimulationData(newData);
       setSimulationState(prev => ({
         ...prev,
         currentDay: prev.currentDay + 1,
-        isFinished: response.data.isFinished,
+        isFinished,
       }));
-      
-      // Check if simulation is finished
-      if (response.data.isFinished) {
-        pauseSimulation();
-      }
+
+      if (isFinished) pauseSimulation();
     } catch (error) {
       console.error('Error stepping simulation:', error);
       pauseSimulation();
     }
-  }, [simulationData, simulationState.isFinished, simulationState.currentDay, simulationParams, pauseSimulation]);
+  }, [simulationData, simulationState.currentDay, simulationParams, simulationState.isFinished, pauseSimulation]);
 
-  // Reset the simulation
   const resetSimulation = useCallback(() => {
     pauseSimulation();
     setSimulationState(initialSimulationState);
-    
-    // Reset infected nodes in the current graph
+
     if (simulationData) {
       const resetData = {
         ...simulationData,
         nodes: simulationData.nodes.map(node => ({
           ...node,
-          status: node.initialStatus || 'healthy',
-          daysInfected: 0,
+          status: node.initialStatus || 'S',
+          daysInfected: null,
         })),
       };
       setSimulationData(resetData);
     }
   }, [simulationData, pauseSimulation]);
 
-  // Update simulation parameters
   const updateSimulationParams = useCallback((params: Partial<SimulationParams>) => {
     setSimulationParams(prev => ({ ...prev, ...params }));
   }, []);
 
-  // Cleanup interval on unmount
   useEffect(() => {
     return () => {
-      if (simulationInterval) {
-        clearInterval(simulationInterval);
-      }
+      if (simulationInterval) clearInterval(simulationInterval);
     };
   }, [simulationInterval]);
 
-  const value = {
-    simulationData,
-    simulationState,
-    simulationParams,
-    fetchDefaultGraph,
-    uploadGraph,
-    generateRandomGraph,
-    startSimulation,
-    pauseSimulation,
-    stepSimulation,
-    resetSimulation,
-    updateSimulationParams,
-  };
-
   return (
-    <SimulationContext.Provider value={value}>
+    <SimulationContext.Provider
+      value={{
+        simulationData,
+        simulationState,
+        simulationParams,
+        fetchDefaultGraph,
+        uploadGraph,
+        generateRandomGraph,
+        startSimulation,
+        pauseSimulation,
+        stepSimulation,
+        resetSimulation,
+        updateSimulationParams,
+      }}
+    >
       {children}
     </SimulationContext.Provider>
   );

@@ -4,7 +4,8 @@ import { useSimulationContext } from '../context/SimulationContext';
 
 interface DataPoint {
   day: number;
-  healthy: number;
+  susceptible: number;
+  exposed: number;
   infected: number;
   recovered: number;
   deceased: number;
@@ -20,10 +21,11 @@ const LineGraph: React.FC = () => {
 
     const newDataPoint = {
       day: simulationState.currentDay,
-      healthy: simulationData.nodes.filter(n => n.status === 'healthy').length,
-      infected: simulationData.nodes.filter(n => n.status === 'infected').length,
-      recovered: simulationData.nodes.filter(n => n.status === 'recovered').length,
-      deceased: simulationData.nodes.filter(n => n.status === 'deceased').length,
+      susceptible: simulationData.nodes.filter(n => n.status === 'S').length,
+      exposed: simulationData.nodes.filter(n => n.status === 'E').length,
+      infected: simulationData.nodes.filter(n => n.status === 'I').length,
+      recovered: simulationData.nodes.filter(n => n.status === 'R').length,
+      deceased: simulationData.nodes.filter(n => n.status === 'D').length,
     };
 
     setHistoricalData(prev => [...prev, newDataPoint]);
@@ -72,24 +74,25 @@ const LineGraph: React.FC = () => {
       .call(d3.axisLeft(yScale).ticks(5))
       .attr('color', '#9CA3AF');
 
-    // Add lines for each status
-    const statuses = [
-      { name: 'healthy', color: '#10b981' },
+    // Add lines for each SEIRD compartment
+    const compartments = [
+      { name: 'susceptible', color: '#10b981' },
+      { name: 'exposed', color: '#f59e0b' },
       { name: 'infected', color: '#ef4444' },
       { name: 'recovered', color: '#3b82f6' },
-      { name: 'deceased', color: '#6b7280' }
+      { name: 'deceased', color: '#6b7280' },
     ];
 
-    statuses.forEach(status => {
-      const statusData = historicalData.map(d => ({
+    compartments.forEach(compartment => {
+      const compartmentData = historicalData.map(d => ({
         day: d.day,
-        value: d[status.name as keyof typeof d]
+        value: d[compartment.name as keyof typeof d],
       }));
 
       svg.append('path')
-        .datum(statusData)
+        .datum(compartmentData)
         .attr('fill', 'none')
-        .attr('stroke', status.color)
+        .attr('stroke', compartment.color)
         .attr('stroke-width', 2)
         .attr('d', line);
     });
@@ -100,7 +103,7 @@ const LineGraph: React.FC = () => {
       .attr('font-size', 10)
       .attr('text-anchor', 'start')
       .selectAll('g')
-      .data(statuses)
+      .data(compartments)
       .join('g')
       .attr('transform', (d, i) => `translate(${width - 100},${i * 20})`);
 
