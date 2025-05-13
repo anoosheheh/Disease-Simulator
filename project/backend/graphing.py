@@ -75,30 +75,46 @@ def generate_random_network(
                         # Lower weights for inter-hub connections
                         G.add_edge(u, v, weight=round(random.uniform(0.1, 0.3), 2))
     
-    # Convert to D3.js format
-    nodes = []
+    # Assign age and status to nodes for consistency
     for i in G.nodes():
-        age = random.randint(1, 100)
-        status = 'infected' if random.random() < 0.05 else 'healthy'
+        G.nodes[i]['age'] = random.randint(1, 100)
+        G.nodes[i]['status'] = 'infected' if random.random() < 0.05 else 'healthy'
+
+    # Use the improved conversion function
+    return convert_graph_to_json(G, hub_sizes=hub_sizes)
+
+
+def convert_graph_to_json(graph, hub_sizes=None):
+    """
+    Convert a NetworkX graph to a D3.js-compatible JSON format.
+    Args:
+        graph: A NetworkX graph object.
+        hub_sizes: Optional list of hub sizes.
+    Returns:
+        A dictionary containing nodes and links in D3.js format.
+    """
+    nodes = []
+    for i in graph.nodes():
+        node_data = graph.nodes[i]
         nodes.append({
             'id': str(i),
-            'age': age,
-            'status': status,
-            'initialStatus': status,
-            'daysInfected': 0 if status == 'infected' else None,
-            'hub': G.nodes[i]['hub']
+            'age': node_data.get('age', random.randint(1, 100)),
+            'status': node_data.get('status', 'infected' if random.random() < 0.05 else 'healthy'),
+            'initialStatus': node_data.get('status', 'infected' if random.random() < 0.05 else 'healthy'),
+            'daysInfected': 0 if node_data.get('status', 'healthy') == 'infected' else None,
+            'hub': node_data.get('hub', None)
         })
-    
+
     links = []
-    for u, v, data in G.edges(data=True):
+    for u, v, data in graph.edges(data=True):
         links.append({
             'source': str(u),
             'target': str(v),
-            'weight': data['weight']
+            'weight': data.get('weight', 1.0)
         })
-    
+
     return {
-        'nodes': nodes, 
+        'nodes': nodes,
         'links': links,
         'hubSizes': hub_sizes,
         'totalNodes': len(nodes)
