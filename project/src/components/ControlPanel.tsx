@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Play, Pause, SkipForward, Settings, Activity } from 'lucide-react';
+import { Play, Pause, SkipForward, Settings, Activity, RotateCcw } from 'lucide-react';
 import { useSimulationContext } from '../context/SimulationContext';
 
 const ControlPanel: React.FC = () => {
-  const { 
-    simulationState, 
-    simulationParams, 
-    startSimulation, 
-    pauseSimulation, 
+  const {
+    simulationState,
+    simulationParams,
+    startSimulation,
+    pauseSimulation,
     stepSimulation,
-    updateSimulationParams 
+    resetSimulation,
+    updateSimulationParams
   } = useSimulationContext();
-  
+
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,7 +26,7 @@ const ControlPanel: React.FC = () => {
       <h2 className="text-lg font-semibold mb-4 flex items-center">
         <Settings size={20} className="mr-2" /> Simulation Controls
       </h2>
-      
+
       <div className="mb-4">
         <div className="flex justify-between mb-2">
           <label htmlFor="simulationSpeed" className="text-sm text-gray-300">
@@ -44,25 +45,26 @@ const ControlPanel: React.FC = () => {
           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
         />
       </div>
-      
-      <div className="flex space-x-2 mb-4">
-        {!simulationState.isRunning ? (
-          <button
-            onClick={startSimulation}
-            className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
-            disabled={simulationState.isFinished}
-          >
-            <Play size={16} className="mr-1" /> Play
-          </button>
-        ) : (
+
+      <div className="flex space-x-2 mb-2">
+        {simulationState.isRunning ? (
           <button
             onClick={pauseSimulation}
             className="bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
           >
             <Pause size={16} className="mr-1" /> Pause
           </button>
+        ) : (
+          <button
+            onClick={startSimulation}
+            className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
+            disabled={simulationState.isFinished}
+          >
+            <Play size={16} className="mr-1" />
+            {simulationState.currentDay > 0 ? 'Resume' : 'Play'}
+          </button>
         )}
-        
+
         <button
           onClick={stepSimulation}
           className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
@@ -71,15 +73,15 @@ const ControlPanel: React.FC = () => {
           <SkipForward size={16} className="mr-1" /> Step
         </button>
       </div>
-      
-      <button 
+
+      <button
         onClick={() => setShowAdvanced(!showAdvanced)}
         className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded mb-4 flex items-center justify-center"
       >
         <Activity size={16} className="mr-1" />
         {showAdvanced ? 'Hide' : 'Show'} Disease Parameters
       </button>
-      
+
       {showAdvanced && (
         <div className="space-y-4 animate-fadeIn">
           <div>
@@ -98,7 +100,7 @@ const ControlPanel: React.FC = () => {
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-          
+
           <div>
             <label htmlFor="recoveryRate" className="block text-sm text-gray-300 mb-1">
               Recovery Rate: {simulationParams.recoveryRate}
@@ -115,7 +117,7 @@ const ControlPanel: React.FC = () => {
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-          
+
           <div>
             <label htmlFor="mortalityBase" className="block text-sm text-gray-300 mb-1">
               Base Mortality: {simulationParams.mortalityBase}
@@ -132,7 +134,7 @@ const ControlPanel: React.FC = () => {
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-          
+
           <div>
             <label htmlFor="medicineEffectiveness" className="block text-sm text-gray-300 mb-1">
               Medicine Effectiveness: {simulationParams.medicineEffectiveness}
@@ -149,7 +151,7 @@ const ControlPanel: React.FC = () => {
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-          
+
           <div className="pt-2">
             <label className="flex items-center space-x-2 text-sm text-gray-300">
               <input

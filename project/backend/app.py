@@ -2,10 +2,12 @@ from flask import Flask, request, jsonify
 import os
 import json
 import random
+import threading
+import time
 import networkx as nx
 import numpy as np
 from flask_cors import CORS
-from graphing import generate_random_network
+from graphing import generate_random_network  # make sure this function is defined correctly
 
 app = Flask(__name__)
 CORS(app)
@@ -17,17 +19,23 @@ MIN_AGE = 1
 MAX_AGE = 100
 INITIAL_INFECTED_PERCENTAGE = 0.05
 
+# Global state for background simulation
+simulation_state = {
+    'data': None,
+    'params': None,
+    'current_day': 0,
+    'running': False,
+    'result': None,
+    'step_interval': 1  # seconds
+}
 
-
-# Function to perform one step of the disease simulation
+# Function to simulate a single step
 def simulate_step(data, params, current_day):
     nodes = data['nodes']
     links = data['links']
     
-    # Create a mapping of node id to node object for easier lookup
     node_map = {node['id']: node for node in nodes}
     
-    # Convert links to a format where we can easily find connections
     connections = {}
     for link in links:
         source_id = link['source'] if isinstance(link['source'], str) else link['source']['id']
@@ -42,39 +50,32 @@ def simulate_step(data, params, current_day):
         connections[source_id].append((target_id, weight))
         connections[target_id].append((source_id, weight))
     
-    # Medicine effect based on day introduced
     medicine_factor = 0
     if params['medicineEnabled'] and current_day >= params['medicineDayIntroduced']:
         medicine_factor = params['medicineEffectiveness']
     
-    # Process each node
     new_infections = []
     recoveries = []
     deaths = []
     
     for node in nodes:
         if node['status'] == 'infected':
-            # Increment days infected
-            node['daysInfected'] = (node['daysInfected'] or 0) + 1
+            node['daysInfected'] = (node.get('daysInfected') or 0) + 1
             
-            # Check for recovery or death
             mortality_rate = params['mortalityBase'] * (node['age'] / 100) * (1 - medicine_factor)
             if random.random() < mortality_rate:
                 deaths.append(node['id'])
             elif random.random() < params['recoveryRate'] * (1 + medicine_factor):
                 recoveries.append(node['id'])
             
-            # Spread infection to connected nodes
             if node['id'] in connections:
                 for connected_id, weight in connections[node['id']]:
                     connected_node = node_map[connected_id]
                     if connected_node['status'] == 'healthy':
-                        # Transmission probability influenced by weight of connection
                         transmission_prob = params['transmissionRate'] * weight
                         if random.random() < transmission_prob:
                             new_infections.append(connected_id)
     
-    # Apply changes
     for node_id in new_infections:
         node_map[node_id]['status'] = 'infected'
         node_map[node_id]['daysInfected'] = 0
@@ -85,15 +86,27 @@ def simulate_step(data, params, current_day):
     for node_id in deaths:
         node_map[node_id]['status'] = 'deceased'
     
-    # Check if simulation is finished (no more infected)
     is_finished = not any(node['status'] == 'infected' for node in nodes)
     
     return {'simulationData': data, 'isFinished': is_finished}
 
+# Background simulation runner
+def run_simulation():
+    while simulation_state['running']:
+        result = simulate_step(simulation_state['data'], simulation_state['params'], simulation_state['current_day'])
+        simulation_state['data'] = result['simulationData']
+        simulation_state['current_day'] += 1
+        simulation_state['result'] = result
+
+        if result['isFinished']:
+            simulation_state['running'] = False
+            break
+
+        time.sleep(simulation_state['step_interval'])
+
 # Routes
 @app.route('/api/graph/default', methods=['GET'])
 def get_default_graph():
-    # Generate a default graph
     return jsonify(generate_random_network())
 
 @app.route('/api/graph/random', methods=['GET'])
@@ -101,32 +114,6 @@ def get_random_graph():
     n_nodes = random.randint(MIN_NODES, MAX_NODES)
     m_edges = random.randint(2, min(5, n_nodes // 10))
     return jsonify(generate_random_network(n_nodes, m_edges))
-
-@app.route('/api/graph/upload', methods=['POST'])
-def upload_graph():
-    data = request.json
-    
-    # Basic validation
-    if 'nodes' not in data or 'links' not in data:
-        return jsonify({'error': 'Invalid graph format'}), 400
-    
-    # Process the graph to ensure it has all required fields
-    for node in data['nodes']:
-        if 'id' not in node:
-            node['id'] = str(random.randint(10000, 99999))
-        if 'age' not in node:
-            node['age'] = random.randint(MIN_AGE, MAX_AGE)
-        if 'status' not in node:
-            node['status'] = 'infected' if random.random() < INITIAL_INFECTED_PERCENTAGE else 'healthy'
-        node['initialStatus'] = node['status']
-        if node['status'] == 'infected':
-            node['daysInfected'] = 0
-    
-    for link in data['links']:
-        if 'weight' not in link:
-            link['weight'] = round(random.uniform(0.1, 1.0), 2)
-    
-    return jsonify(data)
 
 @app.route('/api/simulation/step', methods=['POST'])
 def step_simulation():
@@ -137,6 +124,36 @@ def step_simulation():
     
     result = simulate_step(simulation_data, simulation_params, current_day)
     return jsonify(result)
+
+@app.route('/api/simulation/start', methods=['POST'])
+def start_simulation():
+    if simulation_state['running']:
+        return jsonify({'status': 'already_running'}), 409
+
+    request_data = request.json
+    simulation_state['data'] = request_data.get('data')
+    simulation_state['params'] = request_data.get('params')
+    simulation_state['current_day'] = 0
+    simulation_state['running'] = True
+    simulation_state['result'] = None
+
+    # Speed in milliseconds; default 1000 ms
+    speed_ms = request_data.get('speed', 1000)
+    simulation_state['step_interval'] = max(0.05, speed_ms / 1000.0)
+
+    thread = threading.Thread(target=run_simulation)
+    thread.start()
+
+    return jsonify({'status': 'started'})
+
+@app.route('/api/simulation/state', methods=['GET'])
+def get_simulation_state():
+    return jsonify({
+        'data': simulation_state['data'],
+        'currentDay': simulation_state['current_day'],
+        'running': simulation_state['running'],
+        'isFinished': not simulation_state['running'] and simulation_state['result'] is not None and simulation_state['result']['isFinished']
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
