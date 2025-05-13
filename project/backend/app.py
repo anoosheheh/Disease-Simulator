@@ -17,6 +17,8 @@ MIN_AGE = 1
 MAX_AGE = 100
 INITIAL_INFECTED_PERCENTAGE = 0.05
 
+
+
 # Function to perform one step of the disease simulation
 def simulate_step(data, params, current_day):
     nodes = data['nodes']
