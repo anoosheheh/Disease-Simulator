@@ -1,109 +1,107 @@
 import React from 'react';
-import { PieChart, BarChart, Activity } from 'lucide-react';
+import {
+  PieChart as LucidePieChart,
+  Activity,
+  HeartPulse,
+  Biohazard,
+  Syringe,
+  Skull,
+} from 'lucide-react';
 import { useSimulationContext } from '../context/SimulationContext';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const StatsPanel: React.FC = () => {
   const { simulationData, simulationState } = useSimulationContext();
-  
-  if (!simulationData?.nodes) {
-    return null;
-  }
-  
-  // Calculate statistics
+
+  if (!simulationData?.nodes) return null;
+
+  // Counts
   const totalNodes = simulationData.nodes.length;
-  const healthyCounts = simulationData.nodes.filter(node => node.status === 'healthy').length;
-  const infectedCounts = simulationData.nodes.filter(node => node.status === 'infected').length;
-  const recoveredCounts = simulationData.nodes.filter(node => node.status === 'recovered').length;
-  const deceasedCounts = simulationData.nodes.filter(node => node.status === 'deceased').length;
-  
-  // Calculate percentages
-  const healthyPercentage = (healthyCounts / totalNodes) * 100;
-  const infectedPercentage = (infectedCounts / totalNodes) * 100;
-  const recoveredPercentage = (recoveredCounts / totalNodes) * 100;
-  const deceasedPercentage = (deceasedCounts / totalNodes) * 100;
-  
-  // Stat item component
-  const StatItem = ({ label, count, percentage, color }: { 
-    label: string; 
-    count: number; 
-    percentage: number; 
-    color: string; 
+  const healthy = simulationData.nodes.filter(n => n.status === 'healthy').length;
+  const infected = simulationData.nodes.filter(n => n.status === 'infected').length;
+  const recovered = simulationData.nodes.filter(n => n.status === 'recovered').length;
+  const deceased = simulationData.nodes.filter(n => n.status === 'deceased').length;
+
+  const population = totalNodes - deceased;
+  const infectionRate = ((infected / population) * 100) || 0;
+
+  const pieData = {
+    datasets: [{
+      data: [healthy, infected, recovered, deceased],
+      backgroundColor: ['#22c55e', '#ef4444', '#3b82f6', '#6b7280'],
+      borderWidth: 0,
+    }],
+  };
+
+  const LabelRow = ({
+    Icon,
+    label,
+    count,
+    color,
+  }: {
+    Icon: React.ElementType;
+    label: string;
+    count: number;
+    color: string;
   }) => (
-    <div className="flex flex-col">
-      <div className="flex items-center mb-1">
-        <div className={`w-3 h-3 rounded-full ${color} mr-2`}></div>
-        <span className="text-sm">{label}</span>
-      </div>
-      <div className="flex justify-between text-xs text-gray-400">
-        <span>{count}</span>
-        <span>{percentage.toFixed(1)}%</span>
-      </div>
-      <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
-        <div 
-          className={`h-1.5 rounded-full ${color}`} 
-          style={{ width: `${percentage}%` }}>
-        </div>
-      </div>
+    <div className="flex items-center space-x-3 text-base font-medium">
+      <Icon size={28} className={color} />
+      <span>{label}</span>
+      <span className="ml-auto text-gray-400 text-sm">{count}</span>
     </div>
   );
 
   return (
     <div className="bg-gray-800 mt-4 rounded-lg shadow-lg p-4">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="font-semibold flex items-center">
-          <Activity size={18} className="mr-2" /> Simulation Statistics
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-semibold flex items-center text-lg">
+          <Activity size={28} className="mr-2" />
+          Simulation Statistics
         </h3>
-        <div className="text-sm text-gray-400">
-          Day: {simulationState.currentDay}
-        </div>
+        <span className="text-base">Day: {simulationState.currentDay}</span>
       </div>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatItem 
-          label="Healthy" 
-          count={healthyCounts} 
-          percentage={healthyPercentage} 
-          color="bg-green-500" 
-        />
-        <StatItem 
-          label="Infected" 
-          count={infectedCounts} 
-          percentage={infectedPercentage} 
-          color="bg-red-500" 
-        />
-        <StatItem 
-          label="Recovered" 
-          count={recoveredCounts} 
-          percentage={recoveredPercentage} 
-          color="bg-blue-500" 
-        />
-        <StatItem 
-          label="Deceased" 
-          count={deceasedCounts} 
-          percentage={deceasedPercentage} 
-          color="bg-gray-500" 
-        />
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="bg-gray-700 p-3 rounded-lg">
-          <div className="flex items-center text-sm mb-2">
-            <PieChart size={16} className="mr-2" />
-            <span>Population</span>
+
+      <div className="grid grid-cols-3 gap-4">
+        {/* Unified Left Panel */}
+        <div className="col-span-2 bg-gray-700 p-4 rounded-lg grid grid-cols-2 gap-4 items-center">
+          {/* Pie Chart */}
+          <div className="text-center">
+            <div className="flex items-center justify-center text-sm mb-2">
+              <LucidePieChart size={28} className="mr-2" />
+              <span className="text-base">Population</span>
+            </div>
+            <div className="h-40 w-40 mx-auto">
+              <Pie data={pieData} />
+            </div>
+            <div className="mt-2 text-lg font-bold">
+              {population}
+              <span className="text-sm text-gray-400"> / {totalNodes}</span>
+            </div>
           </div>
-          <div className="text-2xl font-bold">
-            {totalNodes - deceasedCounts}
-            <span className="text-sm text-gray-400 ml-1">/{totalNodes}</span>
+
+          {/* Labels */}
+          <div className="space-y-4 pl-2">
+            <LabelRow Icon={HeartPulse} label="Healthy" count={healthy} color="text-green-500" />
+            <LabelRow Icon={Biohazard} label="Infected" count={infected} color="text-red-500" />
+            <LabelRow Icon={Syringe} label="Recovered" count={recovered} color="text-blue-500" />
+            <LabelRow Icon={Skull} label="Deceased" count={deceased} color="text-gray-500" />
           </div>
         </div>
-        
-        <div className="bg-gray-700 p-3 rounded-lg">
-          <div className="flex items-center text-sm mb-2">
-            <BarChart size={16} className="mr-2" />
-            <span>Infection Rate</span>
+
+        {/* Right Side: Infection Rate */}
+        <div className="bg-gray-700 p-4 rounded-lg flex flex-col items-center justify-center">
+          <div className="text-base mb-4">Infection Rate</div>
+          <div className="relative w-6 h-36 bg-gray-600 rounded-full overflow-hidden">
+            <div
+              className="absolute bottom-0 w-full bg-white"
+              style={{ height: `${infectionRate}%` }}
+            ></div>
           </div>
-          <div className="text-2xl font-bold">
-            {((infectedCounts / (totalNodes - deceasedCounts)) * 100 || 0).toFixed(1)}%
+          <div className="mt-2 text-lg font-bold text-white">
+            {infectionRate.toFixed(1)}%
           </div>
         </div>
       </div>
