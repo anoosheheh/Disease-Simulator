@@ -5,6 +5,7 @@ import random
 import networkx as nx
 import numpy as np
 from flask_cors import CORS
+from graphing import generate_random_network
 
 app = Flask(__name__)
 CORS(app)
@@ -15,39 +16,6 @@ MAX_NODES = 200
 MIN_AGE = 1
 MAX_AGE = 100
 INITIAL_INFECTED_PERCENTAGE = 0.05
-
-# Function to generate a random social network using Barabási-Albert model
-def generate_random_network(n_nodes=100, m_edges=3):
-    # Create Barabási-Albert graph
-    G = nx.barabasi_albert_graph(n_nodes, m_edges)
-    
-    # Add random edge weights (interaction intensity)
-    for u, v in G.edges():
-        G[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
-    
-    # Convert to the format needed for D3.js
-    nodes = []
-    for i in range(n_nodes):
-        age = random.randint(MIN_AGE, MAX_AGE)
-        # Make some nodes initially infected
-        status = 'infected' if random.random() < INITIAL_INFECTED_PERCENTAGE else 'healthy'
-        nodes.append({
-            'id': str(i),
-            'age': age,
-            'status': status,
-            'initialStatus': status,
-            'daysInfected': 0 if status == 'infected' else None
-        })
-    
-    links = []
-    for u, v, data in G.edges(data=True):
-        links.append({
-            'source': str(u),
-            'target': str(v),
-            'weight': data['weight']
-        })
-    
-    return {'nodes': nodes, 'links': links}
 
 # Function to perform one step of the disease simulation
 def simulate_step(data, params, current_day):

@@ -4,6 +4,7 @@ export interface NodeData {
   status: 'healthy' | 'infected' | 'recovered' | 'deceased';
   initialStatus?: 'healthy' | 'infected';
   daysInfected?: number;
+  hub?: number;  // The hub ID this node belongs to
   x?: number;
   y?: number;
   fx?: number | null;
