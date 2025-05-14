@@ -1,6 +1,7 @@
 import random
 from typing import List, Dict, Any
 from tqdm import tqdm
+import numpy as np
 
 # Constants for disease states
 SUSCEPTIBLE = 'S'
@@ -43,15 +44,13 @@ def neighbour_infection_factor(graph, person_id, scenario_params):
 
     return 1 - (1 - S2E) ** total_weight
 
-def mortility_factor(graph, person_id, I2D):
-    age = graph[str(person_id)]['data']['age']
-
-    # Normalize age effect (parabola centered at age 35)
-    age_penalty = ((age - 35) / 35) ** 2  # Range: 0 (best) to ~1.8 (worst)
-
-    adjusted_I2D = I2D * (1 + age_penalty)
-    return min(adjusted_I2D, 1.0)  # Clamp to maximum probability of 1.0
-    
+def mortality_factor(age, base_probability):
+    alpha=0.09
+    beta=0.05
+    A0=35
+    young_risk = np.exp(-alpha * age)
+    old_risk = np.exp(beta * (age - A0))
+    return min(1.0, base_probability * (young_risk + old_risk)) # cap to 1.0
 
 
 
@@ -99,7 +98,7 @@ def person_next_state(
     elif person_state == INFECTED:
         # Increment days infected
         
-        dice = throw_dice(I2R, mortility_factor(graph, person_id, I2D))
+        dice = throw_dice(I2R, mortality_factor(graph, person_id, I2D))
         if dice == 1:
             node['status'] = RECOVERED
             node['daysInfected'] = None
