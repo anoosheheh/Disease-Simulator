@@ -1,12 +1,6 @@
 import networkx as nx
 import random
-
-env_params = {
-    "total_population": 200,
-    "simulate_days": 600,
-    "average_neighbours": 6,
-    "rewire_probability": 0.1,
-}
+from params import env_params
 
 def generate_random_network(
     total_population=env_params["total_population"],
