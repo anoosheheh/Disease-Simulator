@@ -10,7 +10,7 @@ def generate_random_network(
     G = nx.watts_strogatz_graph(total_population, k_within, p_rewire)
     set_graph_node_attributes(G)
     set_graph_edge_attributes(G)
-    return convert_graph_to_json(G)
+    return G
 
 def set_graph_node_attributes(graph):
     
@@ -24,10 +24,10 @@ def set_graph_node_attributes(graph):
         graph.nodes[i]['id'] = str(i)
         graph.nodes[i]['age'] = random.randint(1, 100)
         if i in infected_nodes:
-            graph.nodes[i]['status'] = 'infected'
+            graph.nodes[i]['status'] = 'I'
             graph.nodes[i]['daysInfected'] = 0
         else:
-            graph.nodes[i]['status'] = 'healthy'
+            graph.nodes[i]['status'] = 'S'
             graph.nodes[i]['daysInfected'] = None
 
 def set_graph_edge_attributes(graph):
@@ -35,20 +35,21 @@ def set_graph_edge_attributes(graph):
     for u, v in graph.edges():
         graph[u][v]['weight'] = round(random.uniform(0.1, 1.0), 2)
 
-def convert_graph_to_json(graph):
-    nodes = []
-    links = []
 
+def convert_graph_to_json(graph):
+    # Convert the graph to a JSON-like structure
+    nodes = []
     for i in graph.nodes():
         node_data = graph.nodes[i]
         nodes.append({
-            'id': str(i),
+            'id': node_data.get('id', str(i)),
             'age': node_data.get('age'),
             'status': node_data.get('status'),
             'initialStatus': node_data.get('status'),
             'daysInfected': node_data.get('daysInfected')
         })
 
+    links = []
     for u, v, data in graph.edges(data=True):
         links.append({
             'source': str(u),
@@ -58,5 +59,6 @@ def convert_graph_to_json(graph):
 
     return {
         'nodes': nodes,
-        'links': links
+        'links': links,
+        'totalNodes': len(nodes)
     }
