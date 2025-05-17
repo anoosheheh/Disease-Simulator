@@ -4,11 +4,11 @@ import { useSimulationContext } from '../context/SimulationContext';
 
 interface DataPoint {
   day: number;
-  susceptible: number;
+  healthy: number;
   exposed: number;
   infected: number;
   recovered: number;
-  deceased: number;
+  dead: number;
 }
 
 const LineGraph: React.FC = () => {
@@ -19,13 +19,13 @@ const LineGraph: React.FC = () => {
   useEffect(() => {
     if (!simulationData?.nodes) return;
 
-    const newDataPoint = {
+    const newDataPoint: DataPoint = {
       day: simulationState.currentDay,
-      susceptible: simulationData.nodes.filter(n => n.status === 'S').length,
-      exposed: simulationData.nodes.filter(n => n.status === 'E').length,
-      infected: simulationData.nodes.filter(n => n.status === 'I').length,
-      recovered: simulationData.nodes.filter(n => n.status === 'R').length,
-      deceased: simulationData.nodes.filter(n => n.status === 'D').length,
+      healthy: simulationData.nodes.filter(n => n.status === 'healthy').length,
+      exposed: simulationData.nodes.filter(n => n.status === 'exposed').length,
+      infected: simulationData.nodes.filter(n => n.status === 'infected').length,
+      recovered: simulationData.nodes.filter(n => n.status === 'recovered').length,
+      dead: simulationData.nodes.filter(n => n.status === 'dead').length,
     };
 
     setHistoricalData(prev => [...prev, newDataPoint]);
@@ -76,11 +76,11 @@ const LineGraph: React.FC = () => {
 
     // Add lines for each SEIRD compartment
     const compartments = [
-      { name: 'susceptible', color: '#10b981' },
+      { name: 'healthy', color: '#10b981' },
       { name: 'exposed', color: '#f59e0b' },
       { name: 'infected', color: '#ef4444' },
       { name: 'recovered', color: '#3b82f6' },
-      { name: 'deceased', color: '#6b7280' },
+      { name: 'dead', color: '#6b7280' },
     ];
 
     compartments.forEach(compartment => {
@@ -105,7 +105,7 @@ const LineGraph: React.FC = () => {
       .selectAll('g')
       .data(compartments)
       .join('g')
-      .attr('transform', (d, i) => `translate(${width - 100},${i * 20})`);
+      .attr('transform', (_, i) => `translate(${width - 100},${i * 20})`);
 
     legend.append('rect')
       .attr('x', 0)

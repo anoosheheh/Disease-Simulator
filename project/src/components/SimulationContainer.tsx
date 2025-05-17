@@ -31,7 +31,7 @@ const SimulationContainer: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="lg:col-span-2 flex flex-col space-y-4">
           <div className="bg-gray-800 rounded-lg shadow-lg p-4 h-[50vh] flex flex-col">
-          <LineGraph />
+            <LineGraph />
           </div>
           <StatsPanel />
           <ControlPanel />

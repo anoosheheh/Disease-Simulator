@@ -1,4 +1,4 @@
-export type HealthStatus = 'S' | 'E' | 'I' | 'R' | 'D'; // Susceptible, Exposed, Infected, Recovered, Dead
+export type HealthStatus = 'healthy' | 'exposed' | 'infected' | 'recovered' | 'dead'; // Susceptible, Exposed, Infected, Recovered, Dead
 
 export interface NodeData {
   id: string;

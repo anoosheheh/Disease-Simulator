@@ -8,6 +8,7 @@ const GraphUploader: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { uploadGraph, generateRandomGraph } = useSimulationContext();
   
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     

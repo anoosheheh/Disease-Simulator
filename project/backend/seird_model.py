@@ -4,11 +4,11 @@ from tqdm import tqdm
 import numpy as np
 
 # Constants for disease states
-SUSCEPTIBLE = 'S'
-EXPOSED = 'E'
-INFECTED = 'I'
-RECOVERED = 'R'
-DEAD = 'D'
+SUSCEPTIBLE = 'healthy'
+EXPOSED = 'exposed'
+INFECTED = 'infected'
+RECOVERED = 'recovered'
+DEAD = 'dead'
 
 # For reproducibility!
 random.seed(1234)
@@ -96,9 +96,16 @@ def person_next_state(
             node['daysInfected'] = 0
 
     elif person_state == INFECTED:
-        # Increment days infected
-        
-        dice = throw_dice(I2R, mortality_factor(graph, person_id, I2D))
+        age = node['age']
+        recovery_prob = I2R
+        death_prob = mortality_factor(age, I2D)
+        total = recovery_prob + death_prob
+
+        if total > 1.0:
+            recovery_prob /= total
+            death_prob /= total
+
+        dice = throw_dice(recovery_prob, death_prob)
         if dice == 1:
             node['status'] = RECOVERED
             node['daysInfected'] = None
@@ -107,7 +114,8 @@ def person_next_state(
             node['daysInfected'] = None
         else:
             node['status'] = INFECTED
-            node['daysInfected'] = (node.get('daysInfected') or 0) + 1
+            node['daysInfected'] = node['daysInfected'] + 1 if node['daysInfected'] is not None else 1
+
 
     elif person_state == RECOVERED:
         dice = throw_dice(R2S)
@@ -128,16 +136,25 @@ def next_day(graph, scenario_params):
     Simulates the progression of the disease for one day.
     Updates the states of individuals in the graph.
     """
+    # Snapshot of current statuses to avoid in-place mutation effects
+    current_graph_snapshot = {
+        person_id: {
+            'status': person_data['data']['status'],
+            'age': person_data['data']['age'],
+            'daysInfected': person_data['data'].get('daysInfected', None)
+        }
+        for person_id, person_data in graph.items()
+    }
 
     # Calculate living and infected populations
     living_population = sum(
-        1 for person_data in graph.values()
-        if person_data["data"]["status"] != DEAD
+        1 for data in current_graph_snapshot.values()
+        if data["status"] != DEAD
     )
 
     infected_population = sum(
-        1 for person_data in graph.values()
-        if person_data["data"]["status"] == INFECTED
+        1 for data in current_graph_snapshot.values()
+        if data["status"] == INFECTED
     )
 
     # Calculate random infection probability
@@ -147,10 +164,17 @@ def next_day(graph, scenario_params):
     else:
         random_infection_probability = 0
 
+    # Use snapshot for stable transition logic
+    for person_id in graph:
+        # Temporarily replace graph lookups with snapshot data for consistent reads
+        graph[person_id]['data']['status'] = current_graph_snapshot[person_id]['status']
+        graph[person_id]['data']['age'] = current_graph_snapshot[person_id]['age']
+        graph[person_id]['data']['daysInfected'] = current_graph_snapshot[person_id]['daysInfected']
 
-    for person_id_str in graph:
+    # Now process transitions using the consistent snapshot state
+    for person_id in graph:
         person_next_state(
-            person_id_str,
+            person_id,
             graph,
             scenario_params,
             scenario_params["S2E"],
@@ -162,4 +186,5 @@ def next_day(graph, scenario_params):
             scenario_params["E2R"],
             random_infection_probability
         )
+
 

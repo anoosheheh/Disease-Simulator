@@ -24,10 +24,10 @@ def set_graph_node_attributes(graph):
         graph.nodes[i]['id'] = str(i)
         graph.nodes[i]['age'] = random.randint(1, 100)
         if i in infected_nodes:
-            graph.nodes[i]['status'] = 'I'
+            graph.nodes[i]['status'] = 'infected'
             graph.nodes[i]['daysInfected'] = 0
         else:
-            graph.nodes[i]['status'] = 'S'
+            graph.nodes[i]['status'] = 'healthy'
             graph.nodes[i]['daysInfected'] = None
 
 def set_graph_edge_attributes(graph):
@@ -60,5 +60,3 @@ def convert_graph_to_json(graph):
         'nodes': nodes,
         'links': links
     }
-
-

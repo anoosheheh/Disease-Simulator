@@ -10,6 +10,7 @@ from seird_model import next_day  # Use your SEIRD simulation function
 app = Flask(__name__)
 CORS(app)
 
+
 # Global simulation state
 simulation_state = {
     'graph': None,
@@ -19,18 +20,6 @@ simulation_state = {
     'step_interval': 1.0,  # seconds
 }
 
-# --- Helper Conversions ---
-
-status_lookup = {
-    'healthy': 'S',
-    'exposed': 'E',
-    'infected': 'I',
-    'recovered': 'R',
-    'deceased': 'D'
-}
-
-status_map = {v: k for k, v in status_lookup.items()}
-
 
 def frontend_to_backend_graph(data):
     """ Converts frontend format (nodes and links) to SEIRD-style graph. """
@@ -39,7 +28,7 @@ def frontend_to_backend_graph(data):
     for node in data['nodes']:
         backend_graph[str(node['id'])] = {
             'data': {
-                'status': status_lookup.get(node['status'], 'S'),
+                'status': node.get('status', 'healthy'),
                 'age': node['age'],
                 'daysInfected': node.get('daysInfected', 0)
             },
@@ -64,7 +53,7 @@ def backend_to_frontend_graph(graph):
     seen_links = set()
 
     for node_id, node_data in graph.items():
-        frontend_status = node_data['data']['status']  # Already in 'S', 'E', 'I', 'R', 'D'
+        frontend_status = node_data['data']['status']
 
         nodes.append({
             'id': node_id,
@@ -82,14 +71,17 @@ def backend_to_frontend_graph(graph):
                     'weight': neighbor.get('weight', 1.0)
                 })
                 seen_links.add(pair)
-
     return {'nodes': nodes, 'links': links}
 
 # --- API Routes ---
 
 @app.route('/api/graph/default', methods=['GET'])
 def get_default_graph():
-    return jsonify(generate_random_network())
+    graph = generate_random_network()
+    print("DEBUG /api/graph/default - Generated graph:")
+    print("Nodes:", graph['nodes'][:5], "...")  # Print first 5 nodes for brevity
+    print("Links:", graph['links'][:5], "...")
+    return jsonify(graph)
 
 
 @app.route('/api/simulation/step', methods=['POST'])
@@ -103,6 +95,8 @@ def step_simulation():
         simulation_state['graph'] = frontend_to_backend_graph(frontend_data)
         simulation_state['params'] = params
         simulation_state['current_day'] = 0
+        for k in list(simulation_state['graph'].keys())[:2]:
+            print(k, simulation_state['graph'][k])
 
     # Simulate next day
     next_day(simulation_state['graph'], simulation_state['params'])
@@ -110,13 +104,14 @@ def step_simulation():
 
     updated_data = backend_to_frontend_graph(simulation_state['graph'])
 
-    is_finished = not any(n['status'] == 'I' for n in updated_data['nodes'])
+    is_finished = not any(n['status'] == 'infected' for n in updated_data['nodes'])
 
     return jsonify({
-        'simulationData': updated_data,
+        'data': updated_data,
+        'currentDay': simulation_state['current_day'],
+        'running': simulation_state['running'],
         'isFinished': is_finished
     })
-
 
 
 @app.route('/api/simulation/start', methods=['POST'])
@@ -129,11 +124,18 @@ def start_simulation():
     params = request_data.get('params')
     speed_ms = request_data.get('speed', 1000)
 
+    print("DEBUG /api/simulation/start - Received frontend graph:")
+    print("Nodes:", frontend_data['nodes'][:5], "...")
+    print("Links:", frontend_data['links'][:5], "...")
     simulation_state['graph'] = frontend_to_backend_graph(frontend_data)
     simulation_state['params'] = params
     simulation_state['current_day'] = 0
     simulation_state['step_interval'] = max(0.05, speed_ms / 1000.0)
     simulation_state['running'] = True
+
+    print("DEBUG /api/simulation/start - Converted backend graph (first 2):")
+    for k in list(simulation_state['graph'].keys())[:2]:
+        print(k, simulation_state['graph'][k])
 
     thread = threading.Thread(target=run_simulation)
     thread.start()
@@ -144,6 +146,10 @@ def start_simulation():
 @app.route('/api/simulation/state', methods=['GET'])
 def get_simulation_state():
     frontend_data = backend_to_frontend_graph(simulation_state['graph']) if simulation_state['graph'] else None
+    if frontend_data:
+        print("DEBUG /api/simulation/state - Current frontend graph (first 5 nodes):")
+        print("Nodes:", frontend_data['nodes'][:5], "...")
+        print("Links:", frontend_data['links'][:5], "...")
     is_finished = frontend_data and not any(n['status'] == 'infected' for n in frontend_data['nodes'])
 
     return jsonify({
@@ -160,11 +166,12 @@ def run_simulation():
         next_day(simulation_state['graph'], simulation_state['params'])
         simulation_state['current_day'] += 1
 
-        if not any(node['data']['status'] == 'I' for node in simulation_state['graph'].values()):
+        if not any(node['data']['status'] == 'infected' for node in simulation_state['graph'].values()):
             simulation_state['running'] = False
             break
 
         time.sleep(simulation_state['step_interval'])
+
 
 # --- Run Server ---
 
