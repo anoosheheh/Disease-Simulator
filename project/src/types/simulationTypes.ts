@@ -25,6 +25,7 @@ export interface LinkData {
 export interface SimulationData {
   nodes: NodeData[];
   links: LinkData[];
+  peopleState?: number[]; // Array of [S, E, I, R, D] counts
 }
 
 export interface SimulationParams {

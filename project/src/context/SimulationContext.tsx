@@ -12,6 +12,7 @@ interface SimulationContextType {
   stepSimulation: () => void;
   resetSimulation: () => void;
   updateSimulationParams: (params: Partial<SimulationParams>) => void;
+  initSimulation: () => Promise<void>;
 }
 
 const defaultSimulationParams: SimulationParams = {
@@ -44,11 +45,12 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const response = await axios.get('http://127.0.0.1:5000/api/graph/default');
       const graph: SimulationData = {
-        ...response.data,
-        nodes: response.data.nodes.map((node: NodeData) => ({
+        ...response.data.data,
+        nodes: response.data.data.nodes.map((node: NodeData) => ({
           ...node,
           initialStatus: node.status,
         })),
+        peopleState: response.data.peopleState
       };
       setSimulationData(graph);
       resetSimulation(graph);
@@ -66,11 +68,11 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         speed: simulationParams.simulationSpeed * 1000, // convert to ms
       });
 
-      const { data, currentDay, running, isFinished } = response.data;
+      const { data, currentDay, running, isFinished, peopleState } = response.data;
 
-      setSimulationData(data);
+      setSimulationData({ ...data, peopleState });
       setSimulationState({
-        data,
+        data: { ...data, peopleState },
         running,
         currentDay,
         isFinished,
@@ -79,11 +81,11 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       intervalRef.current = window.setInterval(async () => {
         try {
           const res = await axios.get('http://127.0.0.1:5000/api/simulation/state');
-          const { data, currentDay, running, isFinished } = res.data;
+          const { data, currentDay, running, isFinished, peopleState } = res.data;
 
-          setSimulationData(data);
+          setSimulationData({ ...data, peopleState });
           setSimulationState({
-            data,
+            data: { ...data, peopleState },
             currentDay,
             running,
             isFinished,
@@ -122,11 +124,11 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         params: simulationParams,
       });
 
-      const { data, currentDay, running, isFinished } = response.data;
+      const { data, currentDay, running, isFinished, peopleState } = response.data;
 
-      setSimulationData(data);
+      setSimulationData({ ...data, peopleState });
       setSimulationState({
-        data,
+        data: { ...data, peopleState },
         currentDay,
         running: false, // Always pause after step
         isFinished,
@@ -171,10 +173,10 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/init', {
         params: simulationParams,
       });
-      const { data, currentDay, running, isFinished } = response.data;
-      setSimulationData(data);
+      const { data, currentDay, running, isFinished, peopleState } = response.data;
+      setSimulationData({ ...data, peopleState });
       setSimulationState({
-        data,
+        data: { ...data, peopleState },
         running,
         currentDay,
         isFinished,
@@ -202,7 +204,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         stepSimulation,
         resetSimulation,
         updateSimulationParams,
-        initSimulation, // <-- add this line
+        initSimulation,
       }}
     >
       {children}

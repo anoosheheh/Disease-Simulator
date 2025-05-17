@@ -17,19 +17,19 @@ const LineGraph: React.FC = () => {
   const [historicalData, setHistoricalData] = useState<DataPoint[]>([]);
 
   useEffect(() => {
-    if (!simulationData?.nodes) return;
+    if (!simulationData?.peopleState) return;
 
     const newDataPoint: DataPoint = {
       day: simulationState.currentDay,
-      healthy: simulationData.nodes.filter(n => n.status === 'S').length,
-      exposed: simulationData.nodes.filter(n => n.status === 'E').length,
-      infected: simulationData.nodes.filter(n => n.status === 'I').length,
-      recovered: simulationData.nodes.filter(n => n.status === 'R').length,
-      dead: simulationData.nodes.filter(n => n.status === 'D').length,
+      healthy: simulationData.peopleState[0],
+      exposed: simulationData.peopleState[1],
+      infected: simulationData.peopleState[2],
+      recovered: simulationData.peopleState[3],
+      dead: simulationData.peopleState[4],
     };
 
     setHistoricalData(prev => [...prev, newDataPoint]);
-  }, [simulationState.currentDay, simulationData]);
+  }, [simulationState.currentDay, simulationData?.peopleState]);
 
   useEffect(() => {
     if (!svgRef.current || historicalData.length === 0) return;
