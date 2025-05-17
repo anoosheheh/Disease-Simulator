@@ -2,9 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import threading
 import time
-
 from graphing import generate_random_network, convert_graph_to_json
-from seird_model import next_day
+from seird_model import next_day, count_people_state
 
 app = Flask(__name__)
 CORS(app)
@@ -109,13 +108,15 @@ def init_simulation():
         'isFinished': not any(n['status'] == 'I' for n in graph_json['nodes'])
     })
 
+global people_state
 def run_simulation():
+    global people_state
     while simulation_state['running']:
         if simulation_state['graph'] is None:
             break
-        next_day(simulation_state['graph'], simulation_state['params'])
+        people_state = count_people_state(simulation_state['graph'])
+        next_day(simulation_state['graph'], people_state, simulation_state['params'])
         simulation_state['current_day'] += 1
-
         graph_json = convert_graph_to_json(simulation_state['graph'])
         if not any(n['status'] == 'I' for n in graph_json['nodes']):
             simulation_state['running'] = False

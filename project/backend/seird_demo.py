@@ -1,5 +1,5 @@
 from graphing import generate_random_network
-from seird_model import next_day
+from seird_model import next_day, count_people_state
 import matplotlib.pyplot as plt
 from params import env_params, scenario_params
 
@@ -10,9 +10,6 @@ graph = generate_random_network(
     env_params["rewire_probability"]
 )
 
-# Initialize people_state
-people_state = [graph.nodes[i]['status'] for i in graph.nodes()]
-
 history = {
     'healthy': [],
     'exposed': [],
@@ -21,12 +18,14 @@ history = {
     'dead': []
 }
 
+people_state = count_people_state(graph)
+
 for day in range(env_params["simulate_days"]):
-    s_count = people_state.count('S')
-    e_count = people_state.count('E')
-    i_count = people_state.count('I')
-    r_count = people_state.count('R')
-    d_count = people_state.count('D')
+    s_count = people_state[0]
+    e_count = people_state[1]
+    i_count = people_state[2]
+    r_count = people_state[3]
+    d_count = people_state[4]
 
     history['healthy'].append(s_count)
     history['exposed'].append(e_count)
@@ -34,12 +33,9 @@ for day in range(env_params["simulate_days"]):
     history['recovered'].append(r_count)
     history['dead'].append(d_count)
 
-    print(f"Day {day}: healthy={s_count} exposed={e_count} infected={i_count} recovered={r_count} dead={d_count}")
+    #print(f"Day {day}: healthy={s_count} exposed={e_count} infected={i_count} recovered={r_count} dead={d_count}")
 
-    next_day(graph, scenario_params)
-
-    # Update people_state for next day
-    people_state = [graph.nodes[i]['status'] for i in graph.nodes()]
+    next_day(graph, people_state, scenario_params)
 
 plt.figure(figsize=(12, 6))
 plt.plot(history['healthy'], label='Healthy')

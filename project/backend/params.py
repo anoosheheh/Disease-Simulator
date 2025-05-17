@@ -1,6 +1,6 @@
 
 env_params = {
-    "total_population":100,
+    "total_population": 200,
     "simulate_days": 600,
     "average_neighbours": 6,
     "rewire_probability": 0.1,
