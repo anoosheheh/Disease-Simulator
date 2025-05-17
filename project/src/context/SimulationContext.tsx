@@ -7,7 +7,6 @@ interface SimulationContextType {
   simulationState: SimulationState;
   simulationParams: SimulationParams;
   fetchDefaultGraph: () => Promise<void>;
-  uploadGraph: (data: SimulationData) => Promise<void>;
   startSimulation: () => void;
   pauseSimulation: () => void;
   stepSimulation: () => void;
@@ -58,67 +57,55 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
-  const uploadGraph = useCallback(async (data: SimulationData) => {
-    try {
-      if (!data.nodes || !data.links) throw new Error('Invalid graph format');
-      const response = await axios.post('http://127.0.0.1:5000/api/graph/upload', data);
-      const graph: SimulationData = {
-        ...response.data,
-        nodes: response.data.nodes.map((node: NodeData) => ({
-          ...node,
-          initialStatus: node.status,
-        })),
-      };
-      setSimulationData(graph);
-      resetSimulation(graph);
-    } catch (error) {
-      console.error('Error uploading graph:', error);
-    }
-  }, []);
-
   const startSimulation = useCallback(async () => {
-    if (!simulationData || simulationState.isFinished) return;
+    if (simulationState.isFinished) return;
 
     try {
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
-        data: simulationData,
         params: simulationParams,
+        speed: simulationParams.simulationSpeed * 1000, // convert to ms
       });
 
-      if (response.data.status === 'started') {
-        setSimulationState(prev => ({ ...prev, running: true }));
+      const { data, currentDay, running, isFinished } = response.data;
 
-        intervalRef.current = window.setInterval(async () => {
-          try {
-            const res = await axios.get('http://127.0.0.1:5000/api/simulation/state');
-            const { data, currentDay, running, isFinished } = res.data;
+      setSimulationData(data);
+      setSimulationState({
+        data,
+        running,
+        currentDay,
+        isFinished,
+      });
 
-            setSimulationData(data);
-            setSimulationState(prev => ({
-              ...prev,
-              data,
-              running,
-              currentDay,
-              isFinished,
-            }));
+      intervalRef.current = window.setInterval(async () => {
+        try {
+          const res = await axios.get('http://127.0.0.1:5000/api/simulation/state');
+          const { data, currentDay, running, isFinished } = res.data;
 
-            if (isFinished || !running) {
-              clearInterval(intervalRef.current!);
-              intervalRef.current = null;
-            }
-          } catch (err) {
-            console.error('Polling simulation state failed:', err);
+          setSimulationData(data);
+          setSimulationState({
+            data,
+            currentDay,
+            running,
+            isFinished,
+          });
+
+          if (!running || isFinished) {
             clearInterval(intervalRef.current!);
             intervalRef.current = null;
           }
-        }, 500);
-      }
+        } catch (err) {
+          console.error('Polling simulation state failed:', err);
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+        }
+      }, 500);
     } catch (error) {
       console.error('Error starting simulation:', error);
     }
-  }, [simulationData, simulationParams, simulationState.isFinished]);
+  }, [simulationParams, simulationState.isFinished]);
 
-  const pauseSimulation = useCallback(() => {
+  const pauseSimulation = useCallback(async () => {
+    await axios.post('http://127.0.0.1:5000/api/simulation/pause');
     setSimulationState(prev => ({ ...prev, running: false }));
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -127,32 +114,28 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const stepSimulation = useCallback(async () => {
-    if (!simulationData || simulationState.isFinished) return;
+    // Only allow stepping if simulation is not running
+    if (simulationState.running) return;
 
     try {
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/step', {
-        data: simulationData,
         params: simulationParams,
-        currentDay: simulationState.currentDay
       });
 
-      const { data: newData, currentDay, isFinished, running } = response.data;
+      const { data, currentDay, running, isFinished } = response.data;
 
-      setSimulationData(newData);
-      setSimulationState(prev => ({
-        ...prev,
+      setSimulationData(data);
+      setSimulationState({
+        data,
         currentDay,
+        running: false, // Always pause after step
         isFinished,
-        running,
-        data: newData,
-      }));
-
-      if (isFinished) pauseSimulation();
+      });
     } catch (error) {
       console.error('Error stepping simulation:', error);
-      pauseSimulation();
+      setSimulationState(prev => ({ ...prev, running: false }));
     }
-  }, [simulationData, simulationState.currentDay, simulationParams, simulationState.isFinished, pauseSimulation]);
+  }, [simulationParams, simulationState.running]);
 
   const resetSimulation = useCallback((customData?: SimulationData) => {
     pauseSimulation();
@@ -163,7 +146,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...dataToUse,
         nodes: dataToUse.nodes.map(node => ({
           ...node,
-          initialStatus: node.status,
+          status: node.initialStatus as NonNullable<typeof node.initialStatus>,
           daysInfected: null,
         })),
       };
@@ -183,6 +166,24 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setSimulationParams(prev => ({ ...prev, ...params }));
   }, []);
 
+  const initSimulation = useCallback(async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/api/simulation/init', {
+        params: simulationParams,
+      });
+      const { data, currentDay, running, isFinished } = response.data;
+      setSimulationData(data);
+      setSimulationState({
+        data,
+        running,
+        currentDay,
+        isFinished,
+      });
+    } catch (error) {
+      console.error('Error initializing simulation:', error);
+    }
+  }, [simulationParams]);
+
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -196,12 +197,12 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         simulationState,
         simulationParams,
         fetchDefaultGraph,
-        uploadGraph,
         startSimulation,
         pauseSimulation,
         stepSimulation,
         resetSimulation,
         updateSimulationParams,
+        initSimulation, // <-- add this line
       }}
     >
       {children}

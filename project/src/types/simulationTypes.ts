@@ -1,11 +1,12 @@
-export type HealthStatus = 'healthy' | 'exposed' | 'infected' | 'recovered' | 'dead'; // Susceptible, Exposed, Infected, Recovered, Dead
+// Health status of a node — exactly matches backend status codes
+export type HealthStatus = 'S' | 'E' | 'I' | 'R' | 'D';
 
 export interface NodeData {
   id: string;
   age: number;
-  status: HealthStatus;         // 'S', 'E', 'I', 'R', 'D'
-  daysInfected?: number | null; // nullable, present only for E/I
-  initialStatus?: HealthStatus; // for visualization reset
+  status: HealthStatus;         // Current health status
+  daysInfected?: number | null; // For 'E' or 'I' individuals
+  initialStatus?: HealthStatus; // Used to reset simulation to original state
   x?: number;
   y?: number;
   fx?: number | null;
@@ -18,7 +19,7 @@ export interface NodeData {
 export interface LinkData {
   source: string | NodeData;
   target: string | NodeData;
-  weight: number; // Interaction intensity (default: 1.0)
+  weight: number; // Interaction strength (default: 1.0)
 }
 
 export interface SimulationData {
@@ -27,14 +28,14 @@ export interface SimulationData {
 }
 
 export interface SimulationParams {
-  S2E: number;                 // Base infection probability from neighbors
-  S2E_TAU: number;            // Background infection pressure
-  E2I: number;                // Exposed to Infected
-  I2R: number;                // Infected to Recovered
-  R2S: number;                // Recovered to Susceptible (loss of immunity)
-  I2D: number;                // Infected to Dead
-  E2R: number;                // Exposed to Recovered (asymptomatic recovery)
-  simulationSpeed: number; // Speed of simulation (1.0 = normal speed)
+  S2E: number;               // Probability of exposure from neighbors
+  S2E_TAU: number;           // Background infection rate
+  E2I: number;               // Transition rate from exposed to infected
+  E2R: number;               // Asymptomatic recovery from exposed state
+  I2R: number;               // Recovery from infected state
+  I2D: number;               // Death rate from infected state
+  R2S: number;               // Loss of immunity (recovered to susceptible)
+  simulationSpeed: number;   // Speed multiplier for simulation timing
 }
 
 export interface SimulationState {

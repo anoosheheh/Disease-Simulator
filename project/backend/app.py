@@ -1,179 +1,127 @@
 from flask import Flask, request, jsonify
-import random
+from flask_cors import CORS
 import threading
 import time
-from flask_cors import CORS
 
-from graphing import generate_random_network
-from seird_model import next_day  # Use your SEIRD simulation function
+from graphing import generate_random_network, convert_graph_to_json
+from seird_model import next_day
 
 app = Flask(__name__)
 CORS(app)
 
-
-# Global simulation state
 simulation_state = {
     'graph': None,
     'params': None,
     'current_day': 0,
     'running': False,
-    'step_interval': 1.0,  # seconds
+    'step_interval': 1.0,
 }
-
-
-def frontend_to_backend_graph(data):
-    """ Converts frontend format (nodes and links) to SEIRD-style graph. """
-    backend_graph = {}
-
-    for node in data['nodes']:
-        backend_graph[str(node['id'])] = {
-            'data': {
-                'status': node.get('status', 'healthy'),
-                'age': node['age'],
-                'daysInfected': node.get('daysInfected', 0)
-            },
-            'neighbors': []
-        }
-
-    for link in data['links']:
-        source = str(link['source']) if isinstance(link['source'], str) else link['source']['id']
-        target = str(link['target']) if isinstance(link['target'], str) else link['target']['id']
-        weight = link.get('weight', 1.0)
-
-        backend_graph[source]['neighbors'].append({'id': target, 'weight': weight})
-        backend_graph[target]['neighbors'].append({'id': source, 'weight': weight})
-
-    return backend_graph
-
-
-def backend_to_frontend_graph(graph):
-    """ Converts SEIRD-style graph back to frontend format with nodes and links. """
-    nodes = []
-    links = []
-    seen_links = set()
-
-    for node_id, node_data in graph.items():
-        frontend_status = node_data['data']['status']
-
-        nodes.append({
-            'id': node_id,
-            'status': frontend_status,
-            'age': node_data['data']['age'],
-            'daysInfected': node_data['data'].get('daysInfected', 0),
-            'initialStatus': frontend_status  # optional
-        })
-        for neighbor in node_data['neighbors']:
-            pair = tuple(sorted((node_id, neighbor['id'])))
-            if pair not in seen_links:
-                links.append({
-                    'source': node_id,
-                    'target': neighbor['id'],
-                    'weight': neighbor.get('weight', 1.0)
-                })
-                seen_links.add(pair)
-    return {'nodes': nodes, 'links': links}
-
-# --- API Routes ---
 
 @app.route('/api/graph/default', methods=['GET'])
 def get_default_graph():
     graph = generate_random_network()
-    print("DEBUG /api/graph/default - Generated graph:")
-    print("Nodes:", graph['nodes'][:5], "...")  # Print first 5 nodes for brevity
-    print("Links:", graph['links'][:5], "...")
-    return jsonify(graph)
-
-
-@app.route('/api/simulation/step', methods=['POST'])
-def step_simulation():
-    content = request.json
-    params = content['params']
-
-    # Only rebuild from frontend if graph not initialized
-    if simulation_state['graph'] is None:
-        frontend_data = content['data']
-        simulation_state['graph'] = frontend_to_backend_graph(frontend_data)
-        simulation_state['params'] = params
-        simulation_state['current_day'] = 0
-        for k in list(simulation_state['graph'].keys())[:2]:
-            print(k, simulation_state['graph'][k])
-
-    # Simulate next day
-    next_day(simulation_state['graph'], simulation_state['params'])
-    simulation_state['current_day'] += 1
-
-    updated_data = backend_to_frontend_graph(simulation_state['graph'])
-
-    is_finished = not any(n['status'] == 'infected' for n in updated_data['nodes'])
-
-    return jsonify({
-        'data': updated_data,
-        'currentDay': simulation_state['current_day'],
-        'running': simulation_state['running'],
-        'isFinished': is_finished
-    })
-
+    graph_json = convert_graph_to_json(graph)
+    return jsonify(graph_json)
 
 @app.route('/api/simulation/start', methods=['POST'])
 def start_simulation():
     if simulation_state['running']:
         return jsonify({'status': 'already_running'}), 409
 
-    request_data = request.json
-    frontend_data = request_data.get('data')
-    params = request_data.get('params')
-    speed_ms = request_data.get('speed', 1000)
-
-    print("DEBUG /api/simulation/start - Received frontend graph:")
-    print("Nodes:", frontend_data['nodes'][:5], "...")
-    print("Links:", frontend_data['links'][:5], "...")
-    simulation_state['graph'] = frontend_to_backend_graph(frontend_data)
-    simulation_state['params'] = params
+    req = request.json
+    simulation_state['graph'] = generate_random_network()
+    simulation_state['params'] = req['params']
     simulation_state['current_day'] = 0
-    simulation_state['step_interval'] = max(0.05, speed_ms / 1000.0)
+    simulation_state['step_interval'] = max(0.05, req.get('speed', 1000) / 1000.0)
     simulation_state['running'] = True
-
-    print("DEBUG /api/simulation/start - Converted backend graph (first 2):")
-    for k in list(simulation_state['graph'].keys())[:2]:
-        print(k, simulation_state['graph'][k])
 
     thread = threading.Thread(target=run_simulation)
     thread.start()
 
-    return jsonify({'status': 'started'})
+    graph_json = convert_graph_to_json(simulation_state['graph'])
+    return jsonify({
+        'data': graph_json,
+        'currentDay': simulation_state['current_day'],
+        'running': simulation_state['running'],
+        'isFinished': not any(n['status'] == 'I' for n in graph_json['nodes'])
+    })
 
+@app.route('/api/simulation/step', methods=['POST'])
+def step_simulation():
+    if simulation_state['graph'] is None:
+        return jsonify({'error': 'Simulation not initialized'}), 400
+    if simulation_state['running']:
+        return jsonify({'error': 'Simulation is running. Pause before stepping.'}), 409
+
+    next_day(simulation_state['graph'], simulation_state['params'])
+    simulation_state['current_day'] += 1
+
+    graph_json = convert_graph_to_json(simulation_state['graph'])
+    return jsonify({
+        'data': graph_json,
+        'currentDay': simulation_state['current_day'],
+        'running': False,
+        'isFinished': not any(n['status'] == 'I' for n in graph_json['nodes'])
+    })
 
 @app.route('/api/simulation/state', methods=['GET'])
 def get_simulation_state():
-    frontend_data = backend_to_frontend_graph(simulation_state['graph']) if simulation_state['graph'] else None
-    if frontend_data:
-        print("DEBUG /api/simulation/state - Current frontend graph (first 5 nodes):")
-        print("Nodes:", frontend_data['nodes'][:5], "...")
-        print("Links:", frontend_data['links'][:5], "...")
-    is_finished = frontend_data and not any(n['status'] == 'infected' for n in frontend_data['nodes'])
+    graph = simulation_state['graph']
+    if graph is not None:
+        graph_json = convert_graph_to_json(graph)
+        is_finished = not any(n['status'] == 'I' for n in graph_json['nodes'])
+    else:
+        graph_json = None
+        is_finished = True
 
     return jsonify({
-        'data': frontend_data,
+        'data': graph_json,
         'currentDay': simulation_state['current_day'],
         'running': simulation_state['running'],
         'isFinished': is_finished
     })
 
-# --- Background Simulation Runner ---
+@app.route('/api/simulation/reset', methods=['POST'])
+def reset_simulation():
+    simulation_state['graph'] = None
+    simulation_state['params'] = None
+    simulation_state['current_day'] = 0
+    simulation_state['running'] = False
+    return jsonify({'status': 'reset'})
+
+@app.route('/api/simulation/pause', methods=['POST'])
+def pause_simulation():
+    simulation_state['running'] = False
+    return jsonify({'status': 'paused'})
+
+@app.route('/api/simulation/init', methods=['POST'])
+def init_simulation():
+    req = request.json
+    simulation_state['graph'] = generate_random_network()
+    simulation_state['params'] = req['params']
+    simulation_state['current_day'] = 0
+    simulation_state['running'] = False
+    graph_json = convert_graph_to_json(simulation_state['graph'])
+    return jsonify({
+        'data': graph_json,
+        'currentDay': simulation_state['current_day'],
+        'running': False,
+        'isFinished': not any(n['status'] == 'I' for n in graph_json['nodes'])
+    })
 
 def run_simulation():
     while simulation_state['running']:
+        if simulation_state['graph'] is None:
+            break
         next_day(simulation_state['graph'], simulation_state['params'])
         simulation_state['current_day'] += 1
 
-        if not any(node['data']['status'] == 'infected' for node in simulation_state['graph'].values()):
+        graph_json = convert_graph_to_json(simulation_state['graph'])
+        if not any(n['status'] == 'I' for n in graph_json['nodes']):
             simulation_state['running'] = False
             break
 
         time.sleep(simulation_state['step_interval'])
-
-
-# --- Run Server ---
 
 if __name__ == '__main__':
     app.run(debug=True)

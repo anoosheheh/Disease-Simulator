@@ -21,11 +21,11 @@ const LineGraph: React.FC = () => {
 
     const newDataPoint: DataPoint = {
       day: simulationState.currentDay,
-      healthy: simulationData.nodes.filter(n => n.status === 'healthy').length,
-      exposed: simulationData.nodes.filter(n => n.status === 'exposed').length,
-      infected: simulationData.nodes.filter(n => n.status === 'infected').length,
-      recovered: simulationData.nodes.filter(n => n.status === 'recovered').length,
-      dead: simulationData.nodes.filter(n => n.status === 'dead').length,
+      healthy: simulationData.nodes.filter(n => n.status === 'S').length,
+      exposed: simulationData.nodes.filter(n => n.status === 'E').length,
+      infected: simulationData.nodes.filter(n => n.status === 'I').length,
+      recovered: simulationData.nodes.filter(n => n.status === 'R').length,
+      dead: simulationData.nodes.filter(n => n.status === 'D').length,
     };
 
     setHistoricalData(prev => [...prev, newDataPoint]);

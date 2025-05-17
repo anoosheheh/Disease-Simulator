@@ -1,44 +1,46 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { useSimulationContext } from '../context/SimulationContext';
 import { NodeData, LinkData } from '../types/simulationTypes';
 
 const NetworkGraph: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodeSelectionRef = useRef<d3.Selection<SVGCircleElement, NodeData, SVGGElement, unknown> | null>(null);
+  const tooltipRef = useRef<d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null>(null);
   const hasInitialized = useRef(false);
-
   const { simulationData } = useSimulationContext();
+  const [nodeGroupRef, setNodeGroupRef] = useState<d3.Selection<SVGCircleElement, NodeData, SVGGElement, unknown> | null>(null);
 
   const getNodeColor = (node: NodeData) => {
     switch (node.status) {
-      case 'infected': return '#ef4444'; // Red
-      case 'recovered': return '#3b82f6'; // Blue
-      case 'dead': return '#6b7280'; // Gray
-      case 'exposed': return '#f59e0b'; // Yellow
-      default: return '#10b981'; // Green
+      case 'I': return '#ef4444';
+      case 'R': return '#3b82f6';
+      case 'D': return '#6b7280';
+      case 'E': return '#f59e0b';
+      case 'S': return '#10b981';
+      default: return '#22c55e';
     }
   };
 
   const getNodeRadius = (node: NodeData) => 5 + (node.age / 20);
 
   useEffect(() => {
-    if (hasInitialized.current) return;
     if (!svgRef.current || !simulationData?.nodes || !simulationData?.links) return;
-
-    hasInitialized.current = true;
 
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
 
+    // Only run once
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    // Set initial positions if not already present
     simulationData.nodes.forEach(node => {
       node.x ??= Math.random() * width;
       node.y ??= Math.random() * height;
     });
 
-    const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
 
     const g = svg.append('g');
 
@@ -56,13 +58,21 @@ const NetworkGraph: React.FC = () => {
       .attr('class', 'absolute hidden bg-gray-900 text-white p-2 rounded shadow-lg text-xs')
       .style('pointer-events', 'none')
       .style('opacity', 0);
+    tooltipRef.current = tooltip;
 
     const simulation = d3.forceSimulation<NodeData>(simulationData.nodes)
       .force('link', d3.forceLink<NodeData, LinkData>(simulationData.links).id(d => d.id).distance(50))
       .force('charge', d3.forceManyBody().strength(-30))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collide', d3.forceCollide(d => getNodeRadius(d) + 5))
-      .on('end', () => simulation.stop());
+      .on('end', () => {
+        // Lock node positions once simulation ends
+        simulationData.nodes.forEach(node => {
+          node.fx = node.x;
+          node.fy = node.y;
+        });
+        simulation.stop();
+      });
 
     const links = g.append('g')
       .selectAll('line')
@@ -94,53 +104,42 @@ const NetworkGraph: React.FC = () => {
           .classed('hidden', false);
       })
       .on('mouseout', () => {
-        tooltip
-          .style('opacity', 0)
-          .classed('hidden', true);
+        tooltip.style('opacity', 0).classed('hidden', true);
       });
 
-    const dragBehavior = d3.drag<SVGCircleElement, NodeData>()
-      .on('start', (event, d) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      })
-      .on('drag', (event, d) => {
-        d.fx = event.x;
-        d.fy = event.y;
-      })
-      .on('end', (event, d) => {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      });
+    nodes
+      .attr('cx', d => d.x || 0)
+      .attr('cy', d => d.y || 0);
 
-    nodes.call(dragBehavior as any);
+    setNodeGroupRef(nodes as d3.Selection<SVGCircleElement, NodeData, SVGGElement, unknown>);
 
     simulation.on('tick', () => {
       links
-        .attr('x1', d => (d.source as NodeData).x || 0)
-        .attr('y1', d => (d.source as NodeData).y || 0)
-        .attr('x2', d => (d.target as NodeData).x || 0)
-        .attr('y2', d => (d.target as NodeData).y || 0);
+        .attr('x1', d => (typeof d.source === 'object' ? d.source.x : simulationData.nodes.find(n => n.id === d.source)?.x) || 0)
+        .attr('y1', d => (typeof d.source === 'object' ? d.source.y : simulationData.nodes.find(n => n.id === d.source)?.y) || 0)
+        .attr('x2', d => (typeof d.target === 'object' ? d.target.x : simulationData.nodes.find(n => n.id === d.target)?.x) || 0)
+        .attr('y2', d => (typeof d.target === 'object' ? d.target.y : simulationData.nodes.find(n => n.id === d.target)?.y) || 0);
 
       nodes
         .attr('cx', d => d.x || 0)
         .attr('cy', d => d.y || 0);
     });
-
-    nodeSelectionRef.current = nodes as d3.Selection<SVGCircleElement, NodeData, SVGGElement, unknown>;
+    return () => {
+      simulation.stop();
+      tooltip.remove();
+    };
   }, [simulationData]);
 
   useEffect(() => {
-    if (nodeSelectionRef.current && simulationData?.nodes) {
-      nodeSelectionRef.current
-        .data(simulationData.nodes)
-        .transition()
-        .duration(300)
-        .attr('fill', d => getNodeColor(d));
-    }
-  }, [simulationData]);
+    // On future updates, only change color
+    if (!simulationData?.nodes || !nodeGroupRef) return;
+
+    nodeGroupRef
+      .data(simulationData.nodes)
+      .transition()
+      .duration(300)
+      .attr('fill', getNodeColor);
+  }, [simulationData, nodeGroupRef]);
 
   if (!simulationData?.nodes) {
     return (

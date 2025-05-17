@@ -21,11 +21,11 @@ const StatsPanel: React.FC = () => {
 
   // Counts using updated currentStatus
   const totalNodes = simulationData.nodes.length;
-  const healthy = simulationData.nodes.filter(n => n.status === 'healthy').length;
-  const exposed = simulationData.nodes.filter(n => n.status === 'exposed').length;
-  const infected = simulationData.nodes.filter(n => n.status === 'infected').length;
-  const recovered = simulationData.nodes.filter(n => n.status === 'recovered').length;
-  const deceased = simulationData.nodes.filter(n => n.status === 'dead').length;
+  const healthy = simulationData.nodes.filter(n => n.status === 'S').length;
+  const exposed = simulationData.nodes.filter(n => n.status === 'E').length;
+  const infected = simulationData.nodes.filter(n => n.status === 'I').length;
+  const recovered = simulationData.nodes.filter(n => n.status === 'R').length;
+  const deceased = simulationData.nodes.filter(n => n.status === 'D').length;
 
   const population = totalNodes - deceased;
   const infectionRate = ((infected / population) * 100) || 0;

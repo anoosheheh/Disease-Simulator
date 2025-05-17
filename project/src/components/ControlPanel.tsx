@@ -10,14 +10,23 @@ const ControlPanel: React.FC = () => {
     pauseSimulation,
     stepSimulation,
     updateSimulationParams,
-    resetSimulation, // Added resetSimulation function
+    resetSimulation,
+    initSimulation, // <-- Import initSimulation
   } = useSimulationContext();
-
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     const parsedValue = type === 'number' ? parseFloat(value) : value;
     updateSimulationParams({ [name]: parsedValue });
+  };
+
+  // Wrapper for step that ensures initialization
+  const handleStep = async () => {
+    // If simulation is not initialized (e.g. currentDay === 0 and not running), init first
+    if (!simulationState.data || simulationState.currentDay === 0) {
+      await initSimulation();
+    }
+    await stepSimulation();
   };
 
   return (
@@ -65,7 +74,7 @@ const ControlPanel: React.FC = () => {
         )}
 
         <button
-          onClick={stepSimulation}
+          onClick={handleStep}
           className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
           disabled={simulationState.running || simulationState.isFinished}
         >
@@ -74,7 +83,7 @@ const ControlPanel: React.FC = () => {
 
         {/* Reset Button */}
         <button
-          onClick={resetSimulation} // Added resetSimulation action
+          onClick={resetSimulation}
           className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
           disabled={simulationState.running}
         >
