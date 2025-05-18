@@ -21,6 +21,7 @@ global people_state
 @app.route('/api/graph/default', methods=['GET'])
 def get_default_graph():
     global people_state
+    global graph 
     graph = generate_random_network()
     people_state = count_people_state(graph)
     graph_json = convert_graph_to_json(graph)
@@ -93,14 +94,6 @@ def get_simulation_state():
         'isFinished': is_finished,
         'peopleState': people_state
     })
-
-@app.route('/api/simulation/reset', methods=['POST'])
-def reset_simulation():
-    simulation_state['graph'] = None
-    simulation_state['params'] = None
-    simulation_state['current_day'] = 0
-    simulation_state['running'] = False
-    return jsonify({'status': 'reset'})
 
 @app.route('/api/simulation/pause', methods=['POST'])
 def pause_simulation():

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Play, Pause, SkipForward, Settings, Activity } from 'lucide-react';
 import { useSimulationContext } from '../context/SimulationContext';
 
@@ -10,7 +10,7 @@ const ControlPanel: React.FC = () => {
     pauseSimulation,
     stepSimulation,
     updateSimulationParams,
-    resetSimulation,
+    hardResetSimulation,
     initSimulation, // <-- Import initSimulation
   } = useSimulationContext();
 
@@ -83,11 +83,11 @@ const ControlPanel: React.FC = () => {
 
         {/* Reset Button */}
         <button
-          onClick={resetSimulation}
+          onClick={hardResetSimulation}
           className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
           disabled={simulationState.running}
         >
-          <Activity size={16} className="mr-1" /> Reset
+          <Activity size={16} className="mr-1" /> Generate Random Graph
         </button>
       </div>
     </div>

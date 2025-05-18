@@ -13,6 +13,9 @@ interface SimulationContextType {
   resetSimulation: () => void;
   updateSimulationParams: (params: Partial<SimulationParams>) => void;
   initSimulation: () => Promise<void>;
+  hardResetSimulation: () => void;
+  uploadGraph: (data: SimulationData) => Promise<void>;
+  generateRandomGraph: () => Promise<void>;
 }
 
 const defaultSimulationParams: SimulationParams = {
@@ -40,6 +43,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [simulationState, setSimulationState] = useState<SimulationState>(initialSimulationState);
   const [simulationParams, setSimulationParams] = useState<SimulationParams>(defaultSimulationParams);
   const intervalRef = useRef<number | null>(null);
+  const [initialGraph, setInitialGraph] = useState<SimulationData | null>(null);
 
   const fetchDefaultGraph = useCallback(async () => {
     try {
@@ -53,11 +57,13 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         peopleState: response.data.peopleState
       };
       setSimulationData(graph);
+      setInitialGraph(graph);
       resetSimulation(graph);
     } catch (error) {
       console.error('Error fetching default graph:', error);
     }
   }, []);
+
 
   const startSimulation = useCallback(async () => {
     if (simulationState.isFinished) return;
@@ -65,7 +71,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
         params: simulationParams,
-        speed: simulationParams.simulationSpeed * 1000, // convert to ms
+        speed: simulationParams.simulationSpeed * 1000,
       });
 
       const { data, currentDay, running, isFinished, peopleState } = response.data;
@@ -116,7 +122,6 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const stepSimulation = useCallback(async () => {
-    // Only allow stepping if simulation is not running
     if (simulationState.running) return;
 
     try {
@@ -130,7 +135,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setSimulationState({
         data: { ...data, peopleState },
         currentDay,
-        running: false, // Always pause after step
+        running: false,
         isFinished,
       });
     } catch (error) {
@@ -163,10 +168,85 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setSimulationState(initialSimulationState);
     }
   }, [simulationData, pauseSimulation]);
+    const uploadGraph = useCallback(async (graphData: SimulationData) => {
+    const preparedGraph = {
+      ...graphData,
+      nodes: graphData.nodes.map((node: NodeData) => ({
+        ...node,
+        initialStatus: node.status,
+      })),
+    };
+
+    setSimulationData(preparedGraph);
+    setInitialGraph(preparedGraph);
+    resetSimulation(preparedGraph);
+  }, [resetSimulation]);
+
+  const generateRandomGraph = useCallback(async () => {
+    try {
+      const response = await axios.get('http://127.0.0.1:5000/api/graph/random');
+      const graph: SimulationData = {
+        ...response.data.data,
+        nodes: response.data.data.nodes.map((node: NodeData) => ({
+          ...node,
+          initialStatus: node.status,
+        })),
+        peopleState: response.data.peopleState,
+      };
+      setSimulationData(graph);
+      setInitialGraph(graph);
+      resetSimulation(graph);
+    } catch (error) {
+      console.error('Error generating random graph:', error);
+      throw error;
+    }
+  }, [resetSimulation]);
+
 
   const updateSimulationParams = useCallback((params: Partial<SimulationParams>) => {
     setSimulationParams(prev => ({ ...prev, ...params }));
   }, []);
+
+const hardResetSimulation = useCallback(async () => {
+  pauseSimulation();  // stop any running simulation
+
+  try {
+    const response = await axios.get('http://127.0.0.1:5000/api/graph/default');
+    const graph: SimulationData = {
+      ...response.data.data,
+      nodes: response.data.data.nodes.map((node: NodeData) => ({
+        ...node,
+        initialStatus: node.status,
+      })),
+      peopleState: response.data.peopleState,
+    };
+
+    setSimulationData(graph);
+    setInitialGraph(graph);
+
+    // Reset simulation state fully to initial
+    const resetData = {
+      ...graph,
+      nodes: graph.nodes.map(node => ({
+        ...node,
+        status: node.initialStatus as NonNullable<typeof node.initialStatus>,
+        daysInfected: null,
+      })),
+    };
+    setSimulationData(null); // clear first
+    setSimulationData(resetData);
+    setSimulationState({
+      running: false,
+      isFinished: false,
+      currentDay: 0,
+      data: resetData,
+    });
+
+  } catch (error) {
+    console.error('Error during hard reset simulation:', error);
+  }
+}, [pauseSimulation]);
+
 
   const initSimulation = useCallback(async () => {
     try {
@@ -205,6 +285,9 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetSimulation,
         updateSimulationParams,
         initSimulation,
+        hardResetSimulation,
+        uploadGraph,
+        generateRandomGraph,
       }}
     >
       {children}
