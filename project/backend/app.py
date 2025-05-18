@@ -37,9 +37,16 @@ def start_simulation():
         return jsonify({'status': 'already_running'}), 409
 
     req = request.json
-    simulation_state['graph'] = generate_random_network()
-    simulation_state['params'] = req['params']
-    simulation_state['current_day'] = 0
+    
+    # Only create new graph if we're starting fresh (current_day is 0)
+    if simulation_state['current_day'] == 0:
+        simulation_state['graph'] = generate_random_network()
+        simulation_state['params'] = req['params']
+        simulation_state['current_day'] = 0
+    else:
+        # When resuming, just update the speed
+        simulation_state['params'] = req['params']
+    
     simulation_state['step_interval'] = max(0.05, req.get('speed', 1000) / 1000.0)
     simulation_state['running'] = True
 

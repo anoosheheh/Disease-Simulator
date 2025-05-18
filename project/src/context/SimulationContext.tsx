@@ -69,6 +69,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (simulationState.isFinished) return;
 
     try {
+      // If we're resuming (currentDay > 0), we don't need to initialize
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
         params: simulationParams,
         speed: simulationParams.simulationSpeed * 1000,
@@ -83,6 +84,11 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentDay,
         isFinished,
       });
+
+      // Clear any existing interval before starting a new one
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
 
       intervalRef.current = window.setInterval(async () => {
         try {
@@ -110,7 +116,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch (error) {
       console.error('Error starting simulation:', error);
     }
-  }, [simulationParams, simulationState.isFinished]);
+  }, [simulationParams, simulationState.isFinished, simulationState.currentDay]);
 
   const pauseSimulation = useCallback(async () => {
     await axios.post('http://127.0.0.1:5000/api/simulation/pause');
