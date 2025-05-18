@@ -33,7 +33,7 @@ for day in range(env_params["simulate_days"]):
     history['recovered'].append(r_count)
     history['dead'].append(d_count)
 
-    #print(f"Day {day}: healthy={s_count} exposed={e_count} infected={i_count} recovered={r_count} dead={d_count}")
+    print(f"Day {day}: healthy={s_count} exposed={e_count} infected={i_count} recovered={r_count} dead={d_count}")
 
     next_day(graph, people_state, scenario_params)
 

@@ -1,7 +1,6 @@
 import random
-from typing import List, Dict, Any
-from tqdm import tqdm
 import numpy as np
+import math
 
 # Constants for disease states
 SUSCEPTIBLE = 'S'
@@ -12,6 +11,13 @@ DEAD = 'D'
 
 # For reproducibility!
 random.seed(1234)
+
+from probability_factors import (
+    neighbour_infection_factor,
+    mortality_factor,
+    base_probability_factor,
+    recovery_factor
+)
 
 
 def bob_roll(*p):
@@ -27,45 +33,6 @@ def bob_roll(*p):
         s += p[i]
     return 0
 
-def neighbour_infection_factor(graph, person_id, scenario_params):
-    S2E = scenario_params["S2E"]
-    total_weight = 0.0
-
-    for neighbor_id in graph.neighbors(person_id):
-        status = graph.nodes[neighbor_id]['status']
-        weight = graph[person_id][neighbor_id].get("weight", 1.0)
-
-        if status == INFECTED:
-            total_weight += weight
-
-    return 1 - (1 - S2E) ** total_weight
-
-
-def mortality_factor(age, base_probability):
-    alpha=0.09
-    beta=0.005
-    A0=35
-    young_risk = np.exp(-alpha * age)
-    old_risk = np.exp(beta * (age - A0))
-    return min(1.0, base_probability * (young_risk + old_risk)) # cap to 1.0
-
-def base_probability_factor(graph, S2E_TAU):
-    living_population = sum(
-    1 for person_data in graph.nodes.values()
-    if person_data['status'] != DEAD
-    )
-
-    infected_population = sum(
-        1 for person_data in graph.nodes.values()
-        if person_data['status'] == INFECTED
-    )
-
-    if living_population > 0:
-        base_probability = (infected_population / living_population) * S2E_TAU
-    else:
-        base_probability = 0
-    return base_probability
-
 def count_people_state(graph):
     # Initialize people_state
     people_state = [
@@ -77,6 +44,13 @@ def count_people_state(graph):
     ]
     return people_state
 
+def count_doctors(graph):
+    no_doctors = 0
+    for i in graph.nodes:
+        node = graph.nodes[i]
+        if node.get('isDoctor') == 1 and node['status'] not in ['I', 'D']:
+            no_doctors += 1
+    return no_doctors
 
 def person_next_state(
     person_id,
@@ -91,6 +65,7 @@ def person_next_state(
     I2D,
     E2R,
     random_infection_probability,
+    recovery_probability
 ):
     node = graph.nodes[person_id]
     person_state = node['status']
@@ -101,8 +76,8 @@ def person_next_state(
             neighbour_infection_factor(graph, person_id, scenario_params) + random_infection_probability,
             1.0
         )
-        dice = bob_roll(infection_prob)
-        if dice == 1:
+        bob = bob_roll(infection_prob)
+        if bob == 1:
             node['status'] = EXPOSED
             people_state[0] -= 1
             people_state[1] += 1
@@ -112,13 +87,13 @@ def person_next_state(
             node['daysInfected'] = None
 
     elif person_state == EXPOSED:
-        dice = bob_roll(E2I, E2R)
-        if dice == 1:
+        bob = bob_roll(E2I, E2R)
+        if bob == 1:
             node['status'] = INFECTED
             people_state[1] -= 1
             people_state[2] += 1
             node['daysInfected'] = 0
-        elif dice == 2:
+        elif bob == 2:
             node['status'] = RECOVERED
             people_state[1] -= 1
             people_state[3] += 1
@@ -127,15 +102,18 @@ def person_next_state(
             node['status'] = EXPOSED
             node['daysInfected'] = 0
 
-    elif person_state == INFECTED:
-        # Increment days infected        
-        dice = bob_roll(I2R, mortality_factor(person_age, I2D))
-        if dice == 1:
+    elif person_state == INFECTED:   
+
+        dying_probability = mortality_factor(person_age, I2D)
+        if recovery_probability == 0.95:
+            dying_probability = 0.05        
+        bob = bob_roll(recovery_probability, dying_probability)
+        if bob == 1:
             node['status'] = RECOVERED
             people_state[2] -= 1
             people_state[3] += 1
             node['daysInfected'] = None
-        elif dice == 2:
+        elif bob == 2:
             node['status'] = DEAD
             people_state[2] -= 1
             people_state[4] += 1
@@ -145,8 +123,8 @@ def person_next_state(
             node['daysInfected'] = (node.get('daysInfected') or 0) + 1
             
     elif person_state == RECOVERED:
-        dice = bob_roll(R2S)
-        if dice == 1:
+        bob = bob_roll(R2S)
+        if bob == 1:
             node['status'] = SUSCEPTIBLE
             people_state[3] -= 1
             people_state[0] += 1
@@ -165,8 +143,9 @@ def next_day(graph, people_state, scenario_params):
     Simulates the progression of the disease for one day.
     Updates the states of individuals in the graph.
     """
-    base_probability = base_probability_factor(graph, scenario_params["S2E_TAU"])
-    
+    base_probability = base_probability_factor(people_state, scenario_params["S2E_TAU"])
+    no_doctors = count_doctors(graph)
+    recovery_probability = recovery_factor(no_doctors, people_state, scenario_params["I2R"])
 
     for person_id in graph:
         person_next_state(
@@ -181,6 +160,7 @@ def next_day(graph, people_state, scenario_params):
             scenario_params["R2S"],
             scenario_params["I2D"],
             scenario_params["E2R"],
-            base_probability
+            base_probability,
+            recovery_probability
         )
     
