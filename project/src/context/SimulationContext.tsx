@@ -22,10 +22,10 @@ const defaultSimulationParams: SimulationParams = {
   S2E: 0.05,
   S2E_TAU: 0.5,
   E2I: 0.1,
-  E2R: 0.1,
   I2R: 0.1,
-  I2D: 0.05,
-  R2S: 0.01,
+  R2S: 0.5,
+  I2D: 0.001,
+  E2R: 0.1,
   simulationSpeed: 1.0,
 };
 

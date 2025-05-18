@@ -13,7 +13,7 @@ scenario_params = {
     "I2R": 0.1,
     "R2S": 0.5,
     "I2D": 0.001,
-    "E2R": 0.01,
+    "E2R": 0.1,
 }
 
 infection_range = { min: 0.05, max: 0.10 }
