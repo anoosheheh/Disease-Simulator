@@ -69,10 +69,13 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (simulationState.isFinished) return;
 
     try {
-      // If we're resuming (currentDay > 0), we don't need to initialize
+      // Check if we're resuming (currentDay > 0) or starting fresh
+      const isResume = simulationState.currentDay > 0;
+
       const response = await axios.post('http://127.0.0.1:5000/api/simulation/start', {
         params: simulationParams,
         speed: simulationParams.simulationSpeed * 1000,
+        is_resume: isResume
       });
 
       const { data, currentDay, running, isFinished, peopleState } = response.data;

@@ -38,14 +38,19 @@ def start_simulation():
 
     req = request.json
     
-    # Only create new graph if we're starting fresh (current_day is 0)
-    if simulation_state['current_day'] == 0:
+    # Check if we're resuming or starting fresh
+    is_resume = req.get('is_resume', False)
+    
+    if not is_resume:
+        # Only create new graph if we're not resuming
         simulation_state['graph'] = generate_random_network()
-        simulation_state['params'] = req['params']
         simulation_state['current_day'] = 0
     else:
-        # When resuming, just update the speed
-        simulation_state['params'] = req['params']
+        # When resuming, keep the existing graph and day count
+        if simulation_state['graph'] is None:
+            simulation_state['graph'] = generate_random_network()
+    
+    simulation_state['params'] = req['params']
     
     # Convert speed to interval (higher speed = lower interval)
     speed = req.get('speed', 1000)
