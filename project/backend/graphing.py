@@ -1,6 +1,6 @@
 import networkx as nx
 import random
-from params import env_params
+from params import env_params, infection_range
 
 def generate_random_network(
     total_population=env_params["total_population"],
@@ -16,8 +16,8 @@ def set_graph_node_attributes(graph):
     
     node_ids = list(graph.nodes())
     total_nodes = len(node_ids)
-    percent = random.uniform(0.01, 0.05)
-    num_infected = max(1, int(percent * total_nodes)) # Randomly selects between 1% and 5% of nodes to be 'infected'
+    percent = random.uniform(infection_range[min], infection_range[max])
+    num_infected = max(1, int(percent * total_nodes))
     infected_nodes = set(random.sample(node_ids, num_infected))
 
     for i in graph.nodes():
