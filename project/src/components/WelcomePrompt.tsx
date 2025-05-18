@@ -8,6 +8,11 @@ const WelcomePrompt: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (townName.trim() && diseaseName.trim()) {
+      // Create and play audio
+      const audio = new Audio('/resources/background.mp3');
+      audio.loop = true;
+      audio.volume = 0.3;
+      audio.play().catch(err => console.error('Error playing audio:', err));
       setShowPrompt(false);
     }
   };
