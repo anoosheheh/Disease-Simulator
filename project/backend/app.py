@@ -47,7 +47,9 @@ def start_simulation():
         # When resuming, just update the speed
         simulation_state['params'] = req['params']
     
-    simulation_state['step_interval'] = max(0.05, req.get('speed', 1000) / 1000.0)
+    # Convert speed to interval (higher speed = lower interval)
+    speed = req.get('speed', 1000)
+    simulation_state['step_interval'] = max(0.05, 1000.0 / speed)
     simulation_state['running'] = True
 
     thread = threading.Thread(target=run_simulation)
