@@ -108,15 +108,6 @@ const GraphUploader: React.FC = () => {
           </div>
         )}
       </div>
-      
-      <div className="mt-2 flex justify-center">
-        <button
-          onClick={handleGenerateRandom}
-          className="flex items-center justify-center text-sm text-gray-400 hover:text-white transition-colors py-2"
-        >
-          <RefreshCw size={14} className="mr-1" /> Generate random network
-        </button>
-      </div>
     </div>
   );
 };

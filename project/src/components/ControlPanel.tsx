@@ -80,15 +80,6 @@ const ControlPanel: React.FC = () => {
         >
           <SkipForward size={16} className="mr-1" /> Step
         </button>
-
-        {/* Reset Button */}
-        <button
-          onClick={hardResetSimulation}
-          className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex-1 flex items-center justify-center"
-          disabled={simulationState.running}
-        >
-          <Activity size={16} className="mr-1" /> Generate Random Graph
-        </button>
       </div>
     </div>
   );
