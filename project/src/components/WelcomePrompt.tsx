@@ -1,9 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSimulationContext } from '../context/SimulationContext';
+
+const VictoryMessage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  useEffect(() => {
+    // Play victory sound when component mounts
+    const victorySound = new Audio('/resources/victory.mp3');
+    victorySound.volume = 0.5;
+    victorySound.play().catch(err => console.error('Error playing victory sound:', err));
+
+    return () => {
+      // Cleanup: stop the sound if component unmounts
+      victorySound.pause();
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50">
+      <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full border border-gray-700 text-center">
+        <h2 className="text-3xl font-bold mb-4 text-green-400">Victory!</h2>
+        <p className="text-xl text-white mb-6">
+          The disease has been defeated! Your town is now safe and sound... 
+          until the next outbreak!
+        </p>
+        <p className="text-lg text-gray-300 mb-8">
+          "Power Puff Girls saved the day!"
+        </p>
+        <button
+          onClick={onClose}
+          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const WelcomePrompt: React.FC = () => {
   const [showPrompt, setShowPrompt] = useState(true);
+  const [showVictory, setShowVictory] = useState(false);
   const [townName, setTownName] = useState('');
   const [diseaseName, setDiseaseName] = useState('');
+  const { simulationState } = useSimulationContext();
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Show victory message when simulation is finished
+    if (simulationState.isFinished && !showVictory) {
+      // Stop background audio when victory is achieved
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.pause();
+        backgroundAudioRef.current = null;
+      }
+      setShowVictory(true);
+    }
+  }, [simulationState.isFinished]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -13,9 +64,14 @@ const WelcomePrompt: React.FC = () => {
       audio.loop = true;
       audio.volume = 0.3;
       audio.play().catch(err => console.error('Error playing audio:', err));
+      backgroundAudioRef.current = audio;
       setShowPrompt(false);
     }
   };
+
+  if (showVictory) {
+    return <VictoryMessage onClose={() => setShowVictory(false)} />;
+  }
 
   if (!showPrompt) {
     return (

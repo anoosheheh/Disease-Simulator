@@ -16,5 +16,5 @@ scenario_params = {
     "E2R": 0.1,
 }
 
-infection_range = { min: 0.05, max: 0.10 }
+infection_range = { min: 0.01, max: 0.05 }
 doctors_range = { min: 0.01, max: 0.1 }
