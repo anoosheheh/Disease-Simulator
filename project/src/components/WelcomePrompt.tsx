@@ -1,30 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSimulationContext } from '../context/SimulationContext';
+"use client"
+
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
+import { useSimulationContext } from "../context/SimulationContext"
+
+interface WelcomePromptProps {
+  onSimulationStart?: (townName: string, diseaseName: string) => void
+}
 
 const VictoryMessage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   useEffect(() => {
     // Play victory sound when component mounts
-    const victorySound = new Audio('/resources/victory.mp3');
-    victorySound.volume = 0.5;
-    victorySound.play().catch(err => console.error('Error playing victory sound:', err));
+    const victorySound = new Audio("/resources/victory.mp3")
+    victorySound.volume = 0.5
+    victorySound.play().catch((err) => console.error("Error playing victory sound:", err))
 
     return () => {
       // Cleanup: stop the sound if component unmounts
-      victorySound.pause();
-    };
-  }, []);
+      victorySound.pause()
+    }
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full border border-gray-700 text-center">
         <h2 className="text-3xl font-bold mb-4 text-green-400">Victory!</h2>
         <p className="text-xl text-white mb-6">
-          The disease has been defeated! Your town is now safe and sound... 
-          until the next outbreak!
+          The disease has been defeated! Your town is now safe and sound... until the next outbreak!
         </p>
-        <p className="text-lg text-gray-300 mb-8">
-          "Power Puff Girls saved the day!"
-        </p>
+        <p className="text-lg text-gray-300 mb-8">"Power Puff Girls saved the day!"</p>
         <button
           onClick={onClose}
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200"
@@ -33,54 +37,54 @@ const VictoryMessage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-const WelcomePrompt: React.FC = () => {
-  const [showPrompt, setShowPrompt] = useState(true);
-  const [showVictory, setShowVictory] = useState(false);
-  const [townName, setTownName] = useState('');
-  const [diseaseName, setDiseaseName] = useState('');
-  const { simulationState } = useSimulationContext();
-  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+const WelcomePrompt: React.FC<WelcomePromptProps> = ({ onSimulationStart }) => {
+  const [showPrompt, setShowPrompt] = useState(true)
+  const [showVictory, setShowVictory] = useState(false)
+  const [townName, setTownName] = useState("")
+  const [diseaseName, setDiseaseName] = useState("")
+  const { simulationState } = useSimulationContext()
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     // Show victory message when simulation is finished
     if (simulationState.isFinished && !showVictory) {
       // Stop background audio when victory is achieved
       if (backgroundAudioRef.current) {
-        backgroundAudioRef.current.pause();
-        backgroundAudioRef.current = null;
+        backgroundAudioRef.current.pause()
+        backgroundAudioRef.current = null
       }
-      setShowVictory(true);
+      setShowVictory(true)
     }
-  }, [simulationState.isFinished]);
+  }, [simulationState.isFinished, showVictory])
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (townName.trim() && diseaseName.trim()) {
       // Create and play audio
-      const audio = new Audio('/resources/background.mp3');
-      audio.loop = true;
-      audio.volume = 0.3;
-      audio.play().catch(err => console.error('Error playing audio:', err));
-      backgroundAudioRef.current = audio;
-      setShowPrompt(false);
+      const audio = new Audio("/resources/background.mp3")
+      audio.loop = true
+      audio.volume = 0.3
+      audio.play().catch((err) => console.error("Error playing audio:", err))
+      backgroundAudioRef.current = audio
+
+      // Call the callback with town and disease names
+      if (onSimulationStart) {
+        onSimulationStart(townName, diseaseName)
+      }
+
+      setShowPrompt(false)
     }
-  };
+  }
 
   if (showVictory) {
-    return <VictoryMessage onClose={() => setShowVictory(false)} />;
+    return <VictoryMessage onClose={() => setShowVictory(false)} />
   }
 
   if (!showPrompt) {
-    return (
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-        <h1 className="text-2xl font-bold text-white bg-gray-800 px-6 py-2 rounded-lg shadow-lg">
-          {townName} - {diseaseName} Simulation
-        </h1>
-      </div>
-    );
+    return null // No longer need to show the title here as it will be in the Header
   }
 
   return (
@@ -125,7 +129,7 @@ const WelcomePrompt: React.FC = () => {
         </form>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default WelcomePrompt; 
+export default WelcomePrompt
