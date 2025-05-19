@@ -19,7 +19,6 @@ const NetworkGraph: React.FC = () => {
   > | null>(null)
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity)
 
-  // React state for tooltip
   const [tooltipInfo, setTooltipInfo] = useState<{
     visible: boolean
     node: NodeData | null
@@ -28,20 +27,22 @@ const NetworkGraph: React.FC = () => {
     node: null,
   })
 
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
   const getNodeColor = (node: NodeData) => {
     switch (node.status) {
       case "I":
-        return "#ef4444" // Red - Infected
+        return "#ef4444"
       case "R":
-        return "#3b82f6" // Blue - Recovered
+        return "#3b82f6"
       case "D":
-        return "#6b7280" // Gray - Deceased
+        return "#6b7280"
       case "E":
-        return "#f59e0b" // Yellow - Exposed
+        return "#f59e0b"
       case "S":
-        return "#10b981" // Green - Susceptible
+        return "#10b981"
       default:
-        return "#22c55e" // Fallback
+        return "#22c55e"
     }
   }
 
@@ -56,7 +57,6 @@ const NetworkGraph: React.FC = () => {
     if (hasInitialized.current) return
     hasInitialized.current = true
 
-    // Set initial positions if not already present
     simulationData.nodes.forEach((node) => {
       node.x ??= Math.random() * width
       node.y ??= Math.random() * height
@@ -67,7 +67,6 @@ const NetworkGraph: React.FC = () => {
 
     const g = svg.append("g")
 
-    // Create zoom behavior
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
       .extent([
@@ -77,10 +76,9 @@ const NetworkGraph: React.FC = () => {
       .scaleExtent([0.1, 8])
       .on("zoom", (event) => {
         g.attr("transform", event.transform.toString())
-        setTransform(event.transform) // Store current transform for tooltip positioning
+        setTransform(event.transform)
       })
 
-    // Apply zoom
     svg.call(zoom)
 
     const simulation = d3
@@ -94,10 +92,7 @@ const NetworkGraph: React.FC = () => {
       )
       .force("charge", d3.forceManyBody().strength(-30))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force(
-        "collide",
-        d3.forceCollide((d) => getNodeRadius(d) + 5),
-      )
+      .force("collide", d3.forceCollide((d) => getNodeRadius(d) + 5))
       .on("end", () => {
         simulationData.nodes.forEach((node) => {
           node.fx = node.x
@@ -125,15 +120,17 @@ const NetworkGraph: React.FC = () => {
       .attr("stroke", "#1f2937")
       .attr("stroke-width", 1.5)
       .style("cursor", "pointer")
-      .on("mouseover", (_, d) => {
-        // Show tooltip for this node
+      .on("mouseover", (event, d) => {
         setTooltipInfo({
           visible: true,
           node: d,
         })
+        setMousePosition({ x: event.pageX, y: event.pageY })
+      })
+      .on("mousemove", (event) => {
+        setMousePosition({ x: event.pageX, y: event.pageY })
       })
       .on("mouseout", () => {
-        // Hide tooltip
         setTooltipInfo({
           visible: false,
           node: null,
@@ -146,25 +143,17 @@ const NetworkGraph: React.FC = () => {
 
     simulation.on("tick", () => {
       links
-        .attr(
-          "x1",
-          (d) =>
-            (typeof d.source === "object" ? d.source.x : simulationData.nodes.find((n) => n.id === d.source)?.x) || 0,
+        .attr("x1", (d) =>
+          typeof d.source === "object" ? d.source.x || 0 : simulationData.nodes.find((n) => n.id === d.source)?.x || 0,
         )
-        .attr(
-          "y1",
-          (d) =>
-            (typeof d.source === "object" ? d.source.y : simulationData.nodes.find((n) => n.id === d.source)?.y) || 0,
+        .attr("y1", (d) =>
+          typeof d.source === "object" ? d.source.y || 0 : simulationData.nodes.find((n) => n.id === d.source)?.y || 0,
         )
-        .attr(
-          "x2",
-          (d) =>
-            (typeof d.target === "object" ? d.target.x : simulationData.nodes.find((n) => n.id === d.target)?.x) || 0,
+        .attr("x2", (d) =>
+          typeof d.target === "object" ? d.target.x || 0 : simulationData.nodes.find((n) => n.id === d.target)?.x || 0,
         )
-        .attr(
-          "y2",
-          (d) =>
-            (typeof d.target === "object" ? d.target.y : simulationData.nodes.find((n) => n.id === d.target)?.y) || 0,
+        .attr("y2", (d) =>
+          typeof d.target === "object" ? d.target.y || 0 : simulationData.nodes.find((n) => n.id === d.target)?.y || 0,
         )
 
       nodes.attr("cx", (d) => d.x || 0).attr("cy", (d) => d.y || 0)
@@ -187,47 +176,24 @@ const NetworkGraph: React.FC = () => {
 
   return (
     <div className="flex-1 relative" ref={containerRef}>
-      <svg ref={svgRef} className="w-full h-full bg-gray-900 rounded-lg" data-testid="network-graph">
-        {/* SVG-based tooltip that stays within the graph */}
-        {tooltipInfo.visible && tooltipInfo.node && (
-          <g
-            transform={`translate(${
-              transform.apply([tooltipInfo.node.x || 0, tooltipInfo.node.y || 0])[0]
-            }, ${transform.apply([tooltipInfo.node.x || 0, tooltipInfo.node.y || 0])[1]})`}
-            className="tooltip-group"
-          >
-            {/* Tooltip background */}
-            <rect
-              x="10"
-              y="-60"
-              width="160"
-              height="80"
-              rx="5"
-              ry="5"
-              fill="#1f2937"
-              stroke="#4b5563"
-              strokeWidth="1"
-              opacity="0.95"
-            />
-            {/* Tooltip content */}
-            <text x="20" y="-40" fill="#ffffff" fontSize="12" fontWeight="bold">
-              {tooltipInfo.node.id}
-            </text>
-            <line x1="20" y1="-35" x2="150" y2="-35" stroke="#4b5563" strokeWidth="1" />
-            <text x="20" y="-20" fill="#d1d5db" fontSize="10">
-              Age: {tooltipInfo.node.age}
-            </text>
-            <text x="20" y="-5" fill="#d1d5db" fontSize="10">
-              Status: {tooltipInfo.node.status}
-            </text>
-            <text x="20" y="10" fill="#d1d5db" fontSize="10">
-              Days infected: {tooltipInfo.node.daysInfected || 0}
-            </text>
-          </g>
-        )}
-      </svg>
+      <svg ref={svgRef} className="w-full h-full bg-gray-900 rounded-lg" data-testid="network-graph" />
 
-      {/* Helper text */}
+      {/* HTML Tooltip */}
+      {tooltipInfo.visible && tooltipInfo.node && (
+        <div
+          className="absolute z-50 pointer-events-none px-3 py-2 text-xs text-white bg-gray-800 rounded shadow-lg"
+          style={{
+            top: mousePosition.y - containerRef.current?.getBoundingClientRect().top + 10,
+            left: mousePosition.x - containerRef.current?.getBoundingClientRect().left + 10,
+          }}
+        >
+          <div className="font-bold">{tooltipInfo.node.id}</div>
+          <div className="text-gray-300">Age: {tooltipInfo.node.age}</div>
+          <div className="text-gray-300">Status: {tooltipInfo.node.status}</div>
+          <div className="text-gray-300">Days infected: {tooltipInfo.node.daysInfected || 0}</div>
+        </div>
+      )}
+
       <div className="absolute bottom-2 right-2 text-xs text-gray-300 bg-gray-800 bg-opacity-80 px-2 py-1 rounded">
         Hover over nodes to see details
       </div>
