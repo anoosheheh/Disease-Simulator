@@ -183,8 +183,8 @@ const NetworkGraph: React.FC = () => {
         <div
           className="absolute z-50 pointer-events-none px-3 py-2 text-xs text-white bg-gray-800 rounded shadow-lg"
           style={{
-            top: mousePosition.y - containerRef.current?.getBoundingClientRect().top + 10,
-            left: mousePosition.x - containerRef.current?.getBoundingClientRect().left + 10,
+            top: mousePosition.y - (containerRef.current?.getBoundingClientRect().top ?? 0) + 10,
+            left: mousePosition.x - (containerRef.current?.getBoundingClientRect().left ?? 0) + 10,
           }}
         >
           <div className="font-bold">{tooltipInfo.node.id}</div>
